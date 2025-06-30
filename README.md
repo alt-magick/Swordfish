@@ -19,3 +19,10 @@ ttyd bash -c 'read -p "Username: " user; exec ssh $user@localhost'<br>
 Ctrl + A then D<br>
 <br>
 In index.html change www.yourserver.com to your server<br>
+<br>
+Set permissions for the web server:<br>
+<br>
+sudo chown -R www-data:www-data /path/to/your/folder
+sudo find /path/to/your/folder -type d -exec chmod 775 {} \;
+sudo find /path/to/your/folder -type f -exec chmod 775 {} \;
+sudo chmod -R u+rwX /path/to/your/folder
