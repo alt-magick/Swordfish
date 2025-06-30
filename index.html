@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Windows GUI Application with Two Cubes</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css" />
+
+<!-- Optional CodeMirror theme -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/eclipse.min.css" />
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f0f0f0; height:100vh; overflow:hidden; }
+    .container { display:flex; height:100vh; gap:2px; }
+    .left-panel { width:40%; display:flex; flex-direction:column; gap:2px; }
+    .right-panel { width:60%; background:#fff; border:1px solid #ccc; display:flex; flex-direction: column; }
+    .cube-section { height:50%; background:#2c2c2c; border:1px solid #ccc; display:flex; }
+    .cube-container {
+        flex: 1;
+        position: relative;
+    }
+    .cube-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    .controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .control-btn {
+        background:rgba(255,255,255,0.8);
+        border:1px solid #ccc;
+        padding:5px 10px;
+        border-radius:4px;
+        cursor:pointer;
+        font-size:12px;
+    }
+    .control-btn:hover { background:rgba(255,255,255,0.9); }
+
+    .file-section { height:50%; background:#fff; border:1px solid #ccc; display:flex; flex-direction:column; }
+    .section-header { background:#e1e1e1; padding:8px 12px; border-bottom:1px solid #ccc; font-weight:bold; font-size:14px; }
+    .file-list { flex:1; padding:8px; overflow-y:auto; }
+    .file-item { padding:6px 8px; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:8px; font-size:13px; }
+    .file-item:hover { background:#e8f4fd; }
+    .file-item.selected { background:#cce8ff; }
+
+    .breadcrumb {
+        background: #f8f8f8;
+        padding: 6px 12px;
+        border-bottom: 1px solid #ccc;
+        font-size: 12px;
+        color: #666;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        user-select: none;
+    }
+    .breadcrumb-item {
+        cursor: pointer;
+        color: #0066cc;
+        text-decoration: none;
+    }
+    .breadcrumb-item:hover {
+        text-decoration: underline;
+    }
+    .breadcrumb-separator {
+        color: #999;
+    }
+    .nav-buttons {
+        padding: 4px 8px;
+        background: #f8f8f8;
+        border-bottom: 1px solid #ccc;
+        display: flex;
+        gap: 4px;
+    }
+    .nav-btn {
+        background: #fff;
+        border: 1px solid #ccc;
+        padding: 2px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+    }
+    .nav-btn:hover {
+        background: #e8f4fd;
+    }
+    .nav-btn:disabled {
+        background: #f5f5f5;
+        color: #999;
+        cursor: not-allowed;
+    }
+
+    .editor-header { background:#e1e1e1; padding:8px 12px; border-bottom:1px solid #ccc; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; }
+
+html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .editor-header {
+    flex-shrink: 0;
+    padding: 6px;
+    background: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .editor-content {
+    height: 100%; /* will be adjusted by JS */
+    overflow: hidden;
+  }
+
+  #textEditor {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    font-family: monospace;
+    resize: none;
+    border: none;
+  }
+
+  #dragHandle {
+    height: 6px;
+    background: #ccc;
+    cursor: row-resize;
+    flex-shrink: 0;
+  }
+
+  #iframeContainer {
+    height: 250px;
+    flex-shrink: 0;
+    border-top: 1px solid #ccc;
+  }
+
+  #iframeContainer iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+    /* Label popup styles */
+    #labelPopup {
+        position: absolute;
+        background: white;
+        border: 1px solid #ccc;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        border-radius: 6px;
+        display: none;
+        z-index: 1000;
+        width: 220px;
+        font-family: Arial, sans-serif;
+    }
+    #labelPopup label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: bold;
+        font-size: 13px;
+    }
+    #labelPopup input[type="text"] {
+        width: 100%;
+        padding: 4px 6px;
+        margin-bottom: 10px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+    #labelPopup input[type="color"] {
+        width: 100%;
+        height: 30px;
+        padding: 0;
+        border: none;
+        margin-bottom: 10px;
+        cursor: pointer;
+    }
+    #labelPopup .btn-row {
+        text-align: right;
+    }
+    #labelPopup button {
+        font-size: 13px;
+        padding: 5px 10px;
+        margin-left: 6px;
+        cursor: pointer;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        background: #f5f5f5;
+    }
+    #labelPopup button:hover {
+        background: #eaeaea;
+    }
+</style>
+</head>
+<body>
+<div id="passwordOverlay" style="
+    position: fixed; 
+    top: 0; left: 0; right: 0; bottom: 0; 
+    background: rgba(0,0,0,0.85); 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 2000;
+    flex-direction: column;
+    color: white;
+    font-family: Arial, sans-serif;
+">
+    <h2>Please enter password</h2>
+    <input id="passwordInput" type="password" placeholder="Password" style="font-size:16px; padding:8px; width:200px; border-radius:4px; border:none;"/>
+    <button id="passwordSubmit" style="margin-top:12px; padding:8px 16px; font-size:16px; cursor:pointer; border-radius:4px; border:none;">Enter</button>
+    <div id="passwordError" style="color:#f88; margin-top:10px; display:none;"></div>
+</div>
+
+<div class="container">
+    <div class="left-panel">
+
+        <div class="cube-section">
+            <div class="cube-container" id="cubeContainer1">
+                <div class="controls">
+                    <button class="control-btn" onclick="cubes[0].toggleAnimation()">Animate</button>
+		    <button class="control-btn" onclick="cubes[0].reloadLabels()">Reload</button>
+                    <button class="control-btn" onclick="cubes[0].saveLabels()">Save</button>
+                </div>
+                <canvas id="canvas3d_1" class="cube-canvas" tabindex="0"></canvas>
+            </div>
+            <div class="cube-container" id="cubeContainer2">
+                <div class="controls">
+                    <button class="control-btn" onclick="cubes[1].toggleAnimation()">Animate</button>
+		    <button class="control-btn" onclick="cubes[1].reloadLabels()">Reload</button>
+                    <button class="control-btn" onclick="cubes[1].saveLabels()">Save</button>
+                </div>
+                <canvas id="canvas3d_2" class="cube-canvas" tabindex="0"></canvas>
+            </div>
+        </div>
+
+        <div class="file-section">
+            <div class="section-header">File Explorer</div>
+            <div class="nav-buttons">
+                <button class="nav-btn" id="backBtn" onclick="navigateBack()" disabled>Back</button>
+                <button class="nav-btn" id="upBtn" onclick="navigateUp()" disabled>Up</button>
+                <button class="nav-btn" onclick="refreshDirectory()">Refresh</button>
+	        <button class="nav-btn" id="newFileBtn">New File</button> 
+  	        <button class="nav-btn" id="createDirBtn">New Folder</button>
+		<button class="nav-btn" id="deleteBtn">Delete</button>
+		<button class="nav-btn" id="renameBtn">Rename</button>
+
+            </div>
+            <div class="breadcrumb" id="breadcrumb"></div>
+            <div class="file-list" id="fileList"></div>
+        </div>
+
+    </div>
+
+<div class="right-panel">
+  <div class="editor-header">
+    <span id="fileName">untitled.txt</span>
+    <button id="saveFileBtn" class="control-btn">Save File</button>
+  </div>
+
+  <div class="editor-content">
+    <textarea id="textEditor" spellcheck="false" placeholder="Start typing here..."></textarea>
+  </div>
+
+  <div id="dragHandle"></div>
+
+  <div id="iframeContainer">
+    <iframe src="http://www.diskdash.com:7681"></iframe>
+  </div>
+</div>
+</div>
+
+<!-- Label input popup -->
+<div id="labelPopup" role="dialog" aria-modal="true" aria-labelledby="labelPopupTitle">
+    <label for="labelText">Label Text:</label>
+    <input type="text" id="labelText" placeholder="Enter label (filename)" />
+    <label for="labelColor">Background Color:</label>
+    <input type="color" id="labelColor" value="#222222" />
+    <div class="btn-row">
+        <button id="cancelLabelBtn">Cancel</button>
+        <button id="okLabelBtn">OK</button>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+
+<script>
+    // Globals for file navigation
+    let currentDir = 'files';
+    let dirStack = [];
+
+    // References to UI elements
+    const fileListElem = document.getElementById('fileList');
+    const breadcrumbElem = document.getElementById('breadcrumb');
+    const backBtn = document.getElementById('backBtn');
+    const upBtn = document.getElementById('upBtn');
+    const textEditor = document.getElementById('textEditor');
+    const fileNameElem = document.getElementById('fileName');
+    const saveFileBtn = document.getElementById('saveFileBtn');
+
+    // To track selected file in the explorer
+    let selectedFile = null;
+
+    // Function to simulate file system -- you should replace this with actual backend calls
+    // For demo, we just list fixed files/folders
+    const fakeFS = {
+        '.': {
+            type: 'dir',
+            children: {
+                'docs': { type: 'dir' },
+                'readme.txt': { type: 'file', content: 'This is the readme file.' },
+                'notes.txt': { type: 'file', content: 'These are some notes.' },
+                'image.png': { type: 'file', content: '' },
+            }
+        },
+        './docs': {
+            type: 'dir',
+            children: {
+                'manual.txt': { type: 'file', content: 'Manual content here...' },
+                'license.txt': { type: 'file', content: 'License text here...' }
+            }
+        }
+    };
+
+// Use this as the API base URL for your PHP backend file
+const apiBaseUrl = 'file_api.php';
+
+// List directory contents using backend
+async function listDir(dir) {
+    const url = `${apiBaseUrl}?action=list&dir=${encodeURIComponent(dir)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Failed to list directory: ${resp.statusText}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+}
+
+// Load file contents using backend
+async function loadFile(path) {
+    const url = `${apiBaseUrl}?action=read&file=${encodeURIComponent(path)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Failed to load file: ${resp.statusText}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data.content;
+}
+
+// Save file contents using backend
+async function saveFile(path, content) {
+    const url = `${apiBaseUrl}?action=save`;
+    const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: path, content: content }),
+    });
+    if (!resp.ok) throw new Error(`Failed to save file: ${resp.statusText}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+}
+
+function updateBreadcrumb(dir) {
+    // Ensure dir always starts with 'files'
+    if (!dir.startsWith('files')) {
+        dir = 'files';
+    }
+
+    const parts = dir.split('/').filter(p => p !== '');
+    breadcrumbElem.innerHTML = '';
+
+    // Virtual "root" (really just 'files')
+    const rootItem = document.createElement('span');
+    rootItem.textContent = 'files';
+    rootItem.classList.add('breadcrumb-item');
+    rootItem.onclick = () => {
+        if (currentDir !== 'files') {
+            dirStack.push(currentDir);
+            currentDir = 'files';
+            refreshDirectory();
+        }
+    };
+    breadcrumbElem.appendChild(rootItem);
+
+    let pathSoFar = 'files';
+    for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+
+        const sep = document.createElement('span');
+        sep.textContent = '>';
+        sep.className = 'breadcrumb-separator';
+        breadcrumbElem.appendChild(sep);
+
+        pathSoFar += '/' + part;
+        const item = document.createElement('span');
+        item.textContent = part;
+        item.classList.add('breadcrumb-item');
+        item.onclick = () => {
+            if (pathSoFar !== currentDir) {
+                dirStack.push(currentDir);
+                currentDir = pathSoFar;
+                refreshDirectory();
+            }
+        };
+        breadcrumbElem.appendChild(item);
+    }
+}
+
+async function refreshDirectory() {
+    fileListElem.innerHTML = 'Loading...';
+    backBtn.disabled = dirStack.length === 0;
+    upBtn.disabled = currentDir === 'files';
+
+    try {
+        const files = await listDir(currentDir);
+        fileListElem.innerHTML = '';
+        selectedFile = null;
+
+        if (currentDir !== '.') {
+            const upItem = document.createElement('div');
+            upItem.classList.add('file-item');
+            upItem.textContent = '.. (Up)';
+            upItem.style.fontStyle = 'italic';
+            upItem.onclick = () => {
+                navigateUp();
+            };
+            fileListElem.appendChild(upItem);
+        }
+
+        for (const name in files) {
+            const info = files[name];
+            const item = document.createElement('div');
+            item.classList.add('file-item');
+
+            const type = info.type;
+            const fullPath = currentDir === '.' ? name : currentDir + '/' + name;
+
+            // Main label (filename)
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = name;
+            item.appendChild(nameSpan);
+
+            // Show size for files
+            if (type === 'file' && info.size !== undefined) {
+                const sizeSpan = document.createElement('span');
+                sizeSpan.textContent = ` (${humanFileSize(info.size)})`;
+                sizeSpan.style.color = '#888';
+                sizeSpan.style.fontSize = 'smaller';
+                sizeSpan.style.marginLeft = '8px';
+                item.appendChild(sizeSpan);
+            }
+
+            item.onclick = () => {
+                if (selectedFile !== fullPath) {
+                    selectedFile = fullPath;
+                    highlightSelectedFile(name);
+                }
+            };
+
+            item.ondblclick = () => {
+                if (selectedFile !== fullPath) return;
+
+                if (type === 'dir') {
+                    dirStack.push(currentDir);
+                    currentDir = currentDir === '.' ? './' + name : currentDir + '/' + name;
+                    editor.setValue('');
+                    fileNameElem.textContent = 'untitled.txt';
+                    refreshDirectory();
+                } else {
+                    selectFile(name).then(() => {
+                        fileNameElem.textContent = name;
+                    });
+                }
+            };
+
+            if (type === 'dir') {
+                item.style.fontWeight = 'bold';
+            }
+
+            fileListElem.appendChild(item);
+        }
+
+        updateBreadcrumb(currentDir);
+        await loadCubeLabels('label1.xml', 0);
+        await loadCubeLabels('label2.xml', 1);
+
+    } catch (err) {
+        fileListElem.innerHTML = 'Error loading directory: ' + err;
+        cubes[0].resetCube();
+        cubes[1].resetCube();
+    }
+}
+
+// Helper function to format bytes nicely
+function humanFileSize(bytes) {
+    const thresh = 1024;
+    if (bytes < thresh) return bytes + ' B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let u = -1;
+    do {
+        bytes /= thresh;
+        ++u;
+    } while (bytes >= thresh && u < units.length - 1);
+    return bytes.toFixed(1) + ' ' + units[u];
+}
+
+    async function selectFile(name) {
+        const fullPath = currentDir === '.' ? name : currentDir + '/' + name;
+        try {
+            const content = await loadFile(fullPath);
+	    editor.setValue(content);
+            selectedFile = fullPath;
+            //fileNameElem.textContent = fullPath;
+            highlightSelectedFile(name);
+        } catch (err) {
+            alert("Failed to load file: " + err);
+        }
+    }
+
+    function highlightSelectedFile(name) {
+        const items = fileListElem.querySelectorAll('.file-item');
+        items.forEach(i => {
+            if (i.textContent === name) {
+                i.classList.add('selected');
+            } else {
+                i.classList.remove('selected');
+            }
+        });
+    }
+
+    function navigateBack() {
+        if (dirStack.length === 0) return;
+        currentDir = dirStack.pop();
+        refreshDirectory();
+    }
+
+function navigateUp() {
+    if (!currentDir.startsWith('files')) {
+        currentDir = 'files';
+        return refreshDirectory();
+    }
+
+    const lastSlash = currentDir.lastIndexOf('/');
+    if (lastSlash === -1 || currentDir === 'files') {
+        return; // Already at root of allowed directory
+    }
+
+    const newDir = currentDir.substring(0, lastSlash);
+    if (newDir.length < 5 || !newDir.startsWith('files')) return;
+
+    currentDir = newDir;
+    refreshDirectory();
+}
+
+saveFileBtn.onclick = async () => {
+    if (!selectedFile) {
+        alert("No file selected");
+        return;
+    }
+    try {
+	const content = editor.getValue();
+        await saveFile(selectedFile, content);
+        alert("File saved successfully.");
+    } catch (err) {
+        alert("Failed to save file: " + err.message);
+    }
+};
+
+    // === CubeApp class for each cube ===
+    class CubeApp {
+        constructor(containerId, canvasId) {
+            this.container = document.getElementById(containerId);
+            this.canvas = document.getElementById(canvasId);
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
+            this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+            this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+            this.renderer.setClearColor(0x2c2c2c);
+            this.cube = null;
+            this.isAnimating = false;
+            this.animationId = null;
+            this.mouseDown = false;
+            this.mouseX = 0;
+            this.mouseY = 0;
+            this.raycaster = new THREE.Raycaster();
+            this.mouse = new THREE.Vector2();
+            this.currentSideIndex = null;
+
+            this.baseColors = [
+                0xff0000, 0x00ff00, 0x0000ff,
+                0xffff00, 0xff00ff, 0x00ffff
+            ];
+
+            this.faceLabels = ['', '', '', '', '', ''];
+            this.faceBgColors = [null, null, null, null, null, null];
+
+            this.init();
+        }
+
+        init() {
+            const geometry = new THREE.BoxGeometry(5.2, 5.2, 5.2);
+            const materials = [];
+            for (let i = 0; i < 6; i++) {
+                materials.push(this.createFaceMaterial(i));
+            }
+            this.cube = new THREE.Mesh(geometry, materials);
+            this.scene.add(this.cube);
+            this.camera.position.z = 8;
+
+            this.canvas.addEventListener('mousedown', e => {
+                this.mouseDown = true;
+                this.mouseX = e.clientX;
+                this.mouseY = e.clientY;
+            });
+
+            this.canvas.addEventListener('mouseup', e => {
+                this.mouseDown = false;
+            });
+
+            this.canvas.addEventListener('mousemove', e => {
+                if (!this.mouseDown) return;
+                const deltaX = e.clientX - this.mouseX;
+                const deltaY = e.clientY - this.mouseY;
+                this.cube.rotation.y += deltaX * 0.01;
+                this.cube.rotation.x += deltaY * 0.01;
+                this.mouseX = e.clientX;
+                this.mouseY = e.clientY;
+                this.render();
+            });
+
+            this.canvas.addEventListener('contextmenu', e => {
+                e.preventDefault();
+                this.openLabelPopup(e);
+            });
+
+            // Double-click to open file by face label
+            this.canvas.addEventListener('dblclick', e => {
+                this.handleDoubleClick(e);
+            });
+
+            this.render();
+        }
+
+        createFaceMaterial(index) {
+            if (this.faceLabels[index]) {
+                return new THREE.MeshBasicMaterial({
+                    map: this.createTextTexture(this.faceLabels[index], this.faceBgColors[index] || '#222222')
+                });
+            } else {
+                return new THREE.MeshBasicMaterial({ color: this.baseColors[index] });
+            }
+        }
+
+        createTextTexture(text, bgColor) {
+            const size = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = bgColor || '#222222';
+            ctx.fillRect(0, 0, size, size);
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const lines = text.split('\n');
+            const lineHeight = 26;
+            const startY = size / 2 - ((lines.length - 1) * lineHeight) / 2;
+
+            lines.forEach((line, i) => {
+                ctx.fillText(line, size / 2, startY + i * lineHeight);
+            });
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        openLabelPopup(event) {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            const intersects = this.raycaster.intersectObject(this.cube);
+            if (intersects.length > 0) {
+                const faceIndex = intersects[0].faceIndex;
+                this.currentSideIndex = Math.floor(faceIndex / 2);
+
+                // Prefill popup inputs
+                document.getElementById('labelText').value = this.faceLabels[this.currentSideIndex] || '';
+
+                if (this.faceBgColors[this.currentSideIndex]) {
+                    document.getElementById('labelColor').value = this.faceBgColors[this.currentSideIndex];
+                } else {
+                    const faceMat = this.cube.material[this.currentSideIndex];
+                    if (faceMat.color) {
+                        document.getElementById('labelColor').value = '#' + faceMat.color.getHexString();
+                    } else {
+                        document.getElementById('labelColor').value = '#222222';
+                    }
+                }
+
+                // Position popup near mouse with boundary check
+                const popup = document.getElementById('labelPopup');
+                const popupWidth = popup.offsetWidth || 220;
+                const popupHeight = popup.offsetHeight || 130;
+                let left = event.clientX + 10;
+                let top = event.clientY + 10;
+
+                if (left + popupWidth > window.innerWidth) left = event.clientX - popupWidth - 10;
+                if (top + popupHeight > window.innerHeight) top = event.clientY - popupHeight - 10;
+
+                popup.style.left = left + 'px';
+                popup.style.top = top + 'px';
+                popup.style.display = 'block';
+
+                document.getElementById('labelText').focus();
+                document.getElementById('labelText').select();
+            }
+        }
+
+        updateLabel(label, bgColor) {
+            if (this.currentSideIndex === null) return;
+
+            this.faceLabels[this.currentSideIndex] = label;
+            this.faceBgColors[this.currentSideIndex] = bgColor;
+
+            // Dispose old texture to free memory
+            const oldMat = this.cube.material[this.currentSideIndex];
+            if (oldMat.map) {
+                oldMat.map.dispose();
+            }
+
+            // Replace material for this face
+            this.cube.material[this.currentSideIndex] = new THREE.MeshBasicMaterial({
+                map: this.createTextTexture(label, bgColor)
+            });
+
+            this.cube.material.needsUpdate = true;
+            this.currentSideIndex = null;
+
+            this.render();
+        }
+
+        resetCube() {
+            this.faceLabels = ['', '', '', '', '', ''];
+            this.faceBgColors = [null, null, null, null, null, null];
+
+            for (let i = 0; i < 6; i++) {
+                this.cube.material[i].map?.dispose();
+                this.cube.material[i] = new THREE.MeshBasicMaterial({ color: this.baseColors[i] });
+            }
+            this.cube.rotation.set(0, 0, 0);
+            this.render();
+        }
+
+        toggleAnimation() {
+            this.isAnimating = !this.isAnimating;
+            if (this.isAnimating) this.animate();
+        }
+
+        animate() {
+            if (!this.isAnimating) return;
+            this.animationId = requestAnimationFrame(() => this.animate());
+            this.cube.rotation.x += 0.01;
+            this.cube.rotation.y += 0.01;
+            this.render();
+        }
+
+        render() {
+            this.renderer.render(this.scene, this.camera);
+        }
+
+    async saveLabels() {
+        // Determine which XML file to save to
+        const cubeIndex = cubes.indexOf(this);
+        const xmlFilename = cubeIndex === 0 ? 'label1.xml' : 'label2.xml';
+
+        // Construct full path with currentDir
+        const dirPrefix = currentDir === '.' ? '' : currentDir + '/';
+        const fullPath = dirPrefix + xmlFilename;
+
+        // Build XML string representing cube face labels/colors
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<cube>\n';
+        for (let i = 0; i < 6; i++) {
+            const label = this.faceLabels[i] || '';
+            const color = this.faceBgColors[i] || '#222222';
+            xml += `  <face index="${i}">\n`;
+            xml += `    <label>${label}</label>\n`;
+            xml += `    <color>${color}</color>\n`;
+            xml += `  </face>\n`;
+        }
+        xml += '</cube>';
+
+        try {
+            // Send POST request with JSON payload to PHP backend
+            const resp = await fetch('save_labels.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    path: fullPath,
+                    xmlContent: xml
+                })
+            });
+
+            if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
+            alert(`Labels saved to ${fullPath}`);
+        } catch (err) {
+            alert(`Failed to save labels: ${err.message}`);
+        }
+    }
+        handleDoubleClick(event) {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            const intersects = this.raycaster.intersectObject(this.cube);
+            if (intersects.length > 0) {
+                const faceIndex = intersects[0].faceIndex;
+                const sideIndex = Math.floor(faceIndex / 2);
+                const label = this.faceLabels[sideIndex];
+if (label) {
+    openFile(label).then(() => {
+        fileNameElem.textContent = label;
+    }).catch(err => {
+        alert("Failed to open file: " + err.message);
+    });
+}            }
+        }
+    }
+
+    // Initialize two cubes
+    const cubes = [
+        new CubeApp('cubeContainer1', 'canvas3d_1'),
+        new CubeApp('cubeContainer2', 'canvas3d_2')
+    ];
+
+    // Label popup event handlers
+    const labelPopup = document.getElementById('labelPopup');
+    const labelTextInput = document.getElementById('labelText');
+    const labelColorInput = document.getElementById('labelColor');
+    const cancelLabelBtn = document.getElementById('cancelLabelBtn');
+    const okLabelBtn = document.getElementById('okLabelBtn');
+
+    cancelLabelBtn.onclick = () => {
+        labelPopup.style.display = 'none';
+        cubes.forEach(c => c.currentSideIndex = null);
+    };
+
+    okLabelBtn.onclick = () => {
+        const text = labelTextInput.value.trim();
+        const color = labelColorInput.value;
+        // We must update the cube that currently opened the popup (only one can)
+        for (const c of cubes) {
+            if (c.currentSideIndex !== null) {
+                c.updateLabel(text, color);
+                break;
+            }
+        }
+        labelPopup.style.display = 'none';
+    };
+
+    // Clicking outside popup closes it
+    window.addEventListener('click', (e) => {
+        if (labelPopup.style.display === 'block' && !labelPopup.contains(e.target)) {
+            labelPopup.style.display = 'none';
+            cubes.forEach(c => c.currentSideIndex = null);
+        }
+    });
+
+    // Open a file by filename - selects and loads file in editor if found in current directory
+async function openFile(filename) {
+    try {
+        const files = await listDir(currentDir);
+        if (!(filename in files)) {
+            alert(`"${filename}" not found in current directory.`);
+            return;
+        }
+
+        if (files[filename].type === 'file') {
+            // It's a file: load into editor
+            await selectFile(filename);
+        } else if (files[filename].type === 'dir') {
+            // It's a folder: open it
+            dirStack.push(currentDir);
+            currentDir = currentDir === '.' ? filename : currentDir + '/' + filename;
+            await refreshDirectory();
+	    editor.setValue('');
+            fileNameElem.textContent = 'untitled.txt';
+        } else {
+            alert(`"${filename}" is not a file or folder.`);
+        }
+    } catch (err) {
+        alert("Error opening file or folder: " + err);
+    }
+}
+
+    // Initialize file explorer on load
+    window.onload = () => {
+        refreshDirectory();
+    };
+
+document.getElementById('newFileBtn').onclick = async () => {
+    let newFileName = prompt("Enter new file name (e.g. newfile.txt):");
+    if (!newFileName) return;
+
+    // Validate filename (basic check)
+    if (/[/\\]/.test(newFileName)) {
+        alert("Invalid file name. It cannot contain slashes.");
+        return;
+    }
+
+    // Build full path in currentDir
+    const fullPath = (currentDir === '.' ? '' : currentDir + '/') + newFileName;
+
+    try {
+        // Call backend API to create new empty file
+        const url = `${apiBaseUrl}?action=create`;
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: fullPath }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+
+        // Refresh directory and open the new file in editor
+        await refreshDirectory();
+        await selectFile(newFileName);
+    } catch (err) {
+        alert("Failed to create file: " + err.message);
+    }
+};
+
+document.getElementById('createDirBtn').onclick = async () => {
+    const dirName = prompt('Enter new folder name:');
+    if (!dirName) return;
+
+    // Basic validation: no slashes
+    if (dirName.includes('/') || dirName.includes('\\')) {
+        alert('Folder name cannot contain slashes.');
+        return;
+    }
+
+    const fullPath = currentDir === '.' ? dirName : currentDir + '/' + dirName;
+
+    try {
+        const resp = await fetch(`${apiBaseUrl}?action=mkdir`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir: fullPath }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        alert(`Folder "${dirName}" created successfully.`);
+        refreshDirectory();
+    } catch (err) {
+        alert('Failed to create folder: ' + err.message);
+    }
+};
+
+// Helper to fetch and parse XML labels for one cube
+async function loadCubeLabels(xmlFilename, cubeIndex) {
+    const fullPath = (currentDir === '.' ? '' : currentDir + '/') + xmlFilename;
+    try {
+        const resp = await fetch(fullPath);
+        if (!resp.ok) throw new Error(`XML file not found: ${xmlFilename}`);
+        const text = await resp.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, "application/xml");
+
+        // Clear previous labels on this cube
+        cubes[cubeIndex].resetCube();
+
+        // Parse <face> nodes
+        const faceNodes = xmlDoc.getElementsByTagName('face');
+        for (const faceNode of faceNodes) {
+            const idx = parseInt(faceNode.getAttribute('index'));
+            if (isNaN(idx) || idx < 0 || idx > 5) continue;
+
+            const labelNode = faceNode.getElementsByTagName('label')[0];
+            const colorNode = faceNode.getElementsByTagName('color')[0];
+            const labelText = labelNode ? labelNode.textContent.trim() : '';
+            const colorText = colorNode ? colorNode.textContent.trim() : '#222222';
+
+            if (labelText) {
+                cubes[cubeIndex].faceLabels[idx] = labelText;
+                cubes[cubeIndex].faceBgColors[idx] = colorText;
+            }
+        }
+        // Update materials on cube after loading labels/colors
+        for (let i = 0; i < 6; i++) {
+            const label = cubes[cubeIndex].faceLabels[i];
+            const bgColor = cubes[cubeIndex].faceBgColors[i];
+            if (label) {
+                cubes[cubeIndex].cube.material[i].map?.dispose();
+                cubes[cubeIndex].cube.material[i] = new THREE.MeshBasicMaterial({
+                    map: cubes[cubeIndex].createTextTexture(label, bgColor)
+                });
+            } else {
+                cubes[cubeIndex].cube.material[i].map?.dispose();
+                cubes[cubeIndex].cube.material[i] = new THREE.MeshBasicMaterial({
+                    color: cubes[cubeIndex].baseColors[i]
+                });
+            }
+        }
+        cubes[cubeIndex].cube.material.needsUpdate = true;
+        cubes[cubeIndex].render();
+
+    } catch (err) {
+        // No file or parse error: clear cube labels
+        cubes[cubeIndex].resetCube();
+        console.warn(`Failed to load ${xmlFilename} for cube ${cubeIndex + 1}:`, err);
+    }
+}
+
+CubeApp.prototype.reloadLabels = async function() {
+        const cubeIndex = cubes.indexOf(this);
+        const xmlFilename = cubeIndex === 0 ? 'label1.xml' : 'label2.xml';
+
+        try {
+            await loadCubeLabels(xmlFilename, cubeIndex);
+            alert(`Labels reloaded from ${xmlFilename}`);
+        } catch (err) {
+            alert(`Failed to reload labels: ${err.message}`);
+        }
+    };
+
+if (!currentDir.startsWith('files')) {
+    currentDir = 'files';
+}
+
+document.getElementById('deleteBtn').onclick = async () => {
+    if (!selectedFile) {
+        alert("No file selected to delete.");
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to delete "${selectedFile}"? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const resp = await fetch(`${apiBaseUrl}?action=delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: selectedFile }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+
+        alert(`Deleted "${selectedFile}".`);
+        selectedFile = null;
+	editor.setValue('');
+        fileNameElem.textContent = 'untitled.txt';
+        refreshDirectory();
+    } catch (err) {
+        alert("Failed to delete file: " + err.message);
+    }
+};
+
+document.getElementById('renameBtn').onclick = async () => {
+    if (!selectedFile) {
+        alert("No file selected to rename.");
+        return;
+    }
+
+    const currentName = selectedFile.split('/').pop();
+    const newName = prompt("Enter new name:", currentName);
+    if (!newName || newName === currentName) return;
+
+    // Validate name
+    if (/[/\\]/.test(newName)) {
+        alert("Invalid name. It cannot contain slashes.");
+        return;
+    }
+
+    const baseDir = selectedFile.substring(0, selectedFile.lastIndexOf('/'));
+    const newPath = baseDir ? `${baseDir}/${newName}` : newName;
+
+    try {
+        const resp = await fetch(`${apiBaseUrl}?action=rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldPath: selectedFile, newPath }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+
+        alert(`Renamed to "${newName}".`);
+        selectedFile = newPath;
+        fileNameElem.textContent = newPath;
+        refreshDirectory();
+    } catch (err) {
+        alert("Failed to rename: " + err.message);
+    }
+};
+
+document.getElementById('passwordSubmit').addEventListener('click', () => {
+    const pw = document.getElementById('passwordInput').value;
+    const errorElem = document.getElementById('passwordError');
+
+    if (pw === 'password') {
+        // Hide the overlay and enable app
+        document.getElementById('passwordOverlay').style.display = 'none';
+    } else {
+        errorElem.textContent = 'Incorrect password. Try again.';
+        errorElem.style.display = 'block';
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('passwordInput').focus();
+    }
+});
+
+// Optionally allow Enter key to submit password
+document.getElementById('passwordInput').addEventListener('keyup', (e) => {
+    if (e.key === 'Enter') {
+        document.getElementById('passwordSubmit').click();
+    }
+});
+
+ const dragHandle = document.getElementById('dragHandle');
+  const editorContent = document.querySelector('.editor-content');
+  const iframeContainer = document.getElementById('iframeContainer');
+  const rightPanel = document.querySelector('.right-panel');
+
+  dragHandle.addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startIframeHeight = iframeContainer.offsetHeight;
+    const startEditorHeight = editorContent.offsetHeight;
+
+    function onMouseMove(e) {
+      const dy = e.clientY - startY;
+      const newIframeHeight = startIframeHeight - dy;
+      const newEditorHeight = startEditorHeight + dy;
+
+      if (newIframeHeight >= 100 && newEditorHeight >= 100) {
+        iframeContainer.style.height = newIframeHeight + 'px';
+        editorContent.style.height = newEditorHeight + 'px';
+      }
+    }
+
+    function onMouseUp() {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  });
+
+  const editor = CodeMirror.fromTextArea(document.getElementById('textEditor'), {
+    lineNumbers: true,
+    mode: 'javascript',
+    theme: 'eclipse',
+    autoCloseBrackets: true,
+    matchBrackets: true,
+  });
+
+
+</script>
+
+</body>
+</html>
