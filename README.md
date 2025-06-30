@@ -18,3 +18,4 @@ screen -S ttyd-session<br>
 ttyd bash -c 'read -p "Username: " user; exec ssh $user@localhost'<br>
 Ctrl + A then D<br>
 <br>
+In index.html change www.yourserver.com to your server<br>
