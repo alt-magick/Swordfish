@@ -666,8 +666,8 @@ saveFileBtn.onclick = async () => {
                 if (!this.mouseDown) return;
                 const deltaX = e.clientX - this.mouseX;
                 const deltaY = e.clientY - this.mouseY;
-                this.cube.rotation.y += deltaX * 0.01;
-                this.cube.rotation.x += deltaY * 0.01;
+                this.cube.rotation.y += deltaX * 0.0064;
+                this.cube.rotation.x += deltaY * 0.0064;
                 this.mouseX = e.clientX;
                 this.mouseY = e.clientY;
                 this.render();
@@ -811,8 +811,8 @@ saveFileBtn.onclick = async () => {
         animate() {
             if (!this.isAnimating) return;
             this.animationId = requestAnimationFrame(() => this.animate());
-            this.cube.rotation.x += 0.01;
-            this.cube.rotation.y += 0.01;
+            this.cube.rotation.x += 0.0064;
+            this.cube.rotation.y += 0.0064;
             this.render();
         }
 
