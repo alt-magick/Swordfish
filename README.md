@@ -3,7 +3,6 @@ Graphical Web Terminal<br>
 
 Drop the files in a web directory that is http (not https).<br>
 You need to create a new folder in that directory falled "files".<br>
-The deffault username/password is swordfish/swordfish.<br>
 <br>
 Once the website is live you need to setup ttyd:<br>
 <br>
