@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Windows GUI Application with Two Cubes</title>
+<title>SWORDFISH</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css" />
 
 <!-- Optional CodeMirror theme -->
@@ -205,12 +205,22 @@ html, body {
 </style>
 </head>
 <body>
-<div id="loginOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;color:white;">
-  <h2>Login Required</h2>
-  <input id="loginUser" placeholder="Username" style="padding:8px;margin:5px;" />
-  <input id="loginPass" type="password" placeholder="Password" style="padding:8px;margin:5px;" />
-  <button onclick="attemptLogin()" style="padding:8px 16px;margin-top:10px;">Login</button>
-  <div id="loginError" style="color:#f66;margin-top:10px;display:none;"></div>
+<div id="passwordOverlay" style="
+    position: fixed; 
+    top: 0; left: 0; right: 0; bottom: 0; 
+    background: rgba(0,0,0,1); 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 2000;
+    flex-direction: column;
+    color: white;
+    font-family: Arial, sans-serif;
+">
+    <h2>Please enter password</h2>
+    <input id="passwordInput" type="password" placeholder="Password" style="font-size:16px; padding:8px; width:200px; border-radius:4px; border:none;"/>
+    <button id="passwordSubmit" style="margin-top:12px; padding:8px 16px; font-size:16px; cursor:pointer; border-radius:4px; border:none;">Enter</button>
+    <div id="passwordError" style="color:#f88; margin-top:10px; display:none;"></div>
 </div>
 
 <div class="container">
@@ -236,10 +246,6 @@ html, body {
         </div>
 
         <div class="file-section">
-	    <div id="fullPathDisplay" style="background:#d0d0d0; padding:6px 12px; font-size:13px; color:#444; font-family:monospace; border-bottom:1px solid #ccc;">
-		  Full Path: /home/projects
-	    </div>
-
             <div class="section-header">File Explorer</div>
             <div class="nav-buttons">
                 <button class="nav-btn" id="backBtn" onclick="navigateBack()" disabled>Back</button>
@@ -249,13 +255,11 @@ html, body {
   	        <button class="nav-btn" id="createDirBtn">New Folder</button>
 		<button class="nav-btn" id="deleteBtn">Delete</button>
 		<button class="nav-btn" id="renameBtn">Rename</button>
-		<button class="nav-btn" id="downloadBtn">Download</button>
-		<input type="file" id="uploadInput" style="display: none;">
-		<button id="uploadBtn">Upload</button>
 
             </div>
-            <div class="breadcrumb" id="breadcrumb"></div>
-            <div class="file-list" id="fileList"></div>
+		<div class="breadcrumb" id="breadcrumb"></div>
+	     <div id="currentDirDisplay"></div>		
+		<div class="file-list" id="fileList"></div>
         </div>
 
     </div>
@@ -294,7 +298,7 @@ html, body {
 
 <script>
     // Globals for file navigation
-    let currentDir = 'files/projects';
+    let currentDir = 'files';
     let dirStack = [];
 
     // References to UI elements
@@ -368,33 +372,32 @@ async function saveFile(path, content) {
 }
 
 function updateBreadcrumb(dir) {
-    // Ensure dir always starts with 'files'
-    if (!dir.startsWith('projects')) {
-        dir = 'projects';
+    if (!dir.startsWith('files')) {
+        dir = 'files';
     }
 
     const parts = dir.split('/').filter(p => p !== '');
     breadcrumbElem.innerHTML = '';
 
-    // Virtual "root" (really just 'files')
+    // Show '/home/projects' instead of 'files'
     const rootItem = document.createElement('span');
-    rootItem.textContent = 'projects';
+    rootItem.textContent = '/home/projects';
     rootItem.classList.add('breadcrumb-item');
     rootItem.onclick = () => {
-        if (currentDir !== 'files/projects') {
+        if (currentDir !== 'files') {
             dirStack.push(currentDir);
-            currentDir = 'files/projects';
+            currentDir = 'files';
             refreshDirectory();
         }
     };
     breadcrumbElem.appendChild(rootItem);
 
-    let pathSoFar = 'projects';
+    let pathSoFar = 'files';
     for (let i = 1; i < parts.length; i++) {
         const part = parts[i];
 
         const sep = document.createElement('span');
-        sep.textContent = '>';
+        sep.textContent = ' > ';
         sep.className = 'breadcrumb-separator';
         breadcrumbElem.appendChild(sep);
 
@@ -413,11 +416,17 @@ function updateBreadcrumb(dir) {
     }
 }
 
+function updateDirectoryDisplay() {
+    let visiblePath = currentDir.replace(/^files/, '/home/projects');
+    document.getElementById('currentDirDisplay').textContent = 'Current Directory: ' + visiblePath;
+}
+
 async function refreshDirectory() {
     fileListElem.innerHTML = 'Loading...';
     backBtn.disabled = dirStack.length === 0;
     upBtn.disabled = currentDir === 'files/projects';
-
+	document.getElementById('currentDirDisplay').textContent = 'Current Directory: ' + currentDir;
+updateDirectoryDisplay()
     try {
         const files = await listDir(currentDir);
         fileListElem.innerHTML = '';
@@ -520,14 +529,6 @@ function humanFileSize(bytes) {
     return bytes.toFixed(1) + ' ' + units[u];
 }
 
-  const editor = CodeMirror.fromTextArea(document.getElementById('textEditor'), {
-    lineNumbers: true,
-    mode: 'javascript',
-    theme: 'eclipse',
-    autoCloseBrackets: true,
-    matchBrackets: true,
-  });
-
     async function selectFile(name) {
         const fullPath = currentDir === '.' ? name : currentDir + '/' + name;
         try {
@@ -541,16 +542,18 @@ function humanFileSize(bytes) {
         }
     }
 
-    function highlightSelectedFile(name) {
-        const items = fileListElem.querySelectorAll('.file-item');
-        items.forEach(i => {
-            if (i.textContent === name) {
-                i.classList.add('selected');
-            } else {
-                i.classList.remove('selected');
-            }
-        });
-    }
+function highlightSelectedFile(name) {
+    const items = fileListElem.querySelectorAll('.file-item');
+    items.forEach(i => {
+        const text = i.textContent.trim();
+        const filenameOnly = text.replace(/\s+\(.*\)$/, ''); // remove " (2 KB)"
+        if (filenameOnly === name) {
+            i.classList.add('selected');
+        } else {
+            i.classList.remove('selected');
+        }
+    });
+}
 
     function navigateBack() {
         if (dirStack.length === 0) return;
@@ -559,37 +562,72 @@ function humanFileSize(bytes) {
     }
 
 function navigateUp() {
-    if (!currentDir.startsWith('projects')) {
-        currentDir = 'files/projects';
+    if (!currentDir.startsWith('files')) {
+        currentDir = 'files';
         return refreshDirectory();
     }
 
     const lastSlash = currentDir.lastIndexOf('/');
-    if (lastSlash === -1 || currentDir === 'files/projects') {
+    if (lastSlash === -1 || currentDir === 'files') {
         return; // Already at root of allowed directory
     }
 
     const newDir = currentDir.substring(0, lastSlash);
-    if (newDir.length < 5 || !newDir.startsWith('projects')) return;
+    if (newDir.length < 5 || !newDir.startsWith('files')) return;
 
     currentDir = newDir;
     refreshDirectory();
 }
 
+// Replace your existing saveFileBtn.onclick handler with this improved version:
+
 saveFileBtn.onclick = async () => {
+    const content = editor.getValue();
+    
     if (!selectedFile) {
-        alert("No file selected");
-        return;
-    }
-    try {
-	const content = editor.getValue();
-        await saveFile(selectedFile, content);
-        alert("File saved successfully.");
-    } catch (err) {
-        alert("Failed to save file: " + err.message);
+        // No file currently loaded - prompt for new filename
+        const newFileName = prompt("Save as (enter filename):", "untitled.txt");
+        if (!newFileName) {
+            return; // User cancelled
+        }
+        
+        // Validate filename (basic check)
+        if (/[/\\]/.test(newFileName)) {
+            alert("Invalid file name. It cannot contain slashes.");
+            return;
+        }
+        
+        // Build full path in current directory
+        const fullPath = (currentDir === '.' ? '' : currentDir + '/') + newFileName;
+        
+        try {
+            // Save the new file
+            await saveFile(fullPath, content);
+            
+            // Update UI to reflect the new file
+            selectedFile = fullPath;
+            fileNameElem.textContent = newFileName;
+            
+            // Refresh directory to show the new file
+            await refreshDirectory();
+            
+            // Highlight the newly created file
+            highlightSelectedFile(newFileName);
+            
+            alert("File saved successfully as: " + newFileName);
+        } catch (err) {
+            alert("Failed to save file: " + err.message);
+        }
+    } else {
+        // File already selected - save to existing file
+        try {
+            await saveFile(selectedFile, content);
+            alert("File saved successfully.");
+        } catch (err) {
+            alert("Failed to save file: " + err.message);
+        }
     }
 };
-
     // === CubeApp class for each cube ===
     class CubeApp {
         constructor(containerId, canvasId) {
@@ -939,16 +977,16 @@ document.getElementById('newFileBtn').onclick = async () => {
         return;
     }
 
-    // Extract directory from currentDir, use empty string if currentDir is '.'
-    const dir = currentDir === '.' ? '' : currentDir;
+    // Build full path in currentDir
+    const fullPath = (currentDir === '.' ? '' : currentDir + '/') + newFileName;
 
     try {
-        // Call backend API to create new empty file with separate dir and filename
+        // Call backend API to create new empty file
         const url = `${apiBaseUrl}?action=create`;
         const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dir, filename: newFileName }),
+            body: JSON.stringify({ file: fullPath }),
         });
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
@@ -1055,20 +1093,19 @@ CubeApp.prototype.reloadLabels = async function() {
         }
     };
 
-if (!currentDir.startsWith('projects')) {
-    currentDir = 'files/projects';
+if (!currentDir.startsWith('files')) {
+    currentDir = 'files';
 }
 
 document.getElementById('deleteBtn').onclick = async () => {
     if (!selectedFile) {
-        alert("No file or folder selected.");
+        alert("No file selected to delete.");
         return;
     }
 
-	const displayPath = selectedFile.replace(/^files\/projects\/?/, '');
-	const confirmed = confirm(`Are you sure you want to delete "${displayPath}"?`);
-
-    if (!confirmed) return;
+    if (!confirm(`Are you sure you want to delete "${selectedFile}"? This action cannot be undone.`)) {
+        return;
+    }
 
     try {
         const resp = await fetch(`${apiBaseUrl}?action=delete`, {
@@ -1076,15 +1113,16 @@ document.getElementById('deleteBtn').onclick = async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ path: selectedFile }),
         });
-
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
 
-        alert("Deleted successfully.");
+        alert(`Deleted "${selectedFile}".`);
         selectedFile = null;
-        await refreshDirectory();
+	editor.setValue('');
+        fileNameElem.textContent = 'untitled.txt';
+        refreshDirectory();
     } catch (err) {
-        alert("Failed to delete: " + err.message);
+        alert("Failed to delete file: " + err.message);
     }
 };
 
@@ -1125,55 +1163,11 @@ document.getElementById('renameBtn').onclick = async () => {
     }
 };
 
-document.getElementById('uploadBtn').onclick = () => {
-    document.getElementById('uploadInput').click();
-};
-
-document.getElementById('uploadInput').onchange = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Determine upload directory from selectedFile
-    const uploadDir = selectedFile ? selectedFile.substring(0, selectedFile.lastIndexOf('/')) : 'files/projects';
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('dir', uploadDir);
-
-    try {
-        const resp = await fetch(`${apiBaseUrl}?action=upload`, {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await resp.json();
-        if (result.error) throw new Error(result.error);
-
-        alert('Upload successful!');
-        refreshDirectory();
-    } catch (err) {
-        alert('Upload failed: ' + err.message);
-    }
-
-    // Clear the input for next upload
-    event.target.value = '';
-};
-
-document.getElementById('downloadBtn').onclick = () => {
-    if (!selectedFile) {
-        alert("No file selected to download.");
-        return;
-    }
-
-    const downloadUrl = `${apiBaseUrl}?action=download&path=${encodeURIComponent(selectedFile)}`;
-    window.open(downloadUrl, '_blank');
-};
-
 document.getElementById('passwordSubmit').addEventListener('click', () => {
     const pw = document.getElementById('passwordInput').value;
     const errorElem = document.getElementById('passwordError');
 
-    if (pw === 'password') {
+    if (pw === 'swordfish') {
         // Hide the overlay and enable app
         document.getElementById('passwordOverlay').style.display = 'none';
     } else {
@@ -1222,39 +1216,14 @@ document.getElementById('passwordInput').addEventListener('keyup', (e) => {
     window.addEventListener('mouseup', onMouseUp);
   });
 
+  const editor = CodeMirror.fromTextArea(document.getElementById('textEditor'), {
+    lineNumbers: true,
+    mode: 'javascript',
+    theme: 'eclipse',
+    autoCloseBrackets: true,
+    matchBrackets: true,
+  });
 
-async function attemptLogin() {
-    const username = document.getElementById('loginUser').value.trim();
-    const password = document.getElementById('loginPass').value;
-
-    const resp = await fetch('auth.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    });
-
-    const result = await resp.json();
-
-    if (result.success) {
-        document.getElementById('loginOverlay').style.display = 'none';
-        refreshDirectory(); // your existing function
-    } else {
-        const error = document.getElementById('loginError');
-        error.textContent = result.message || 'Login failed';
-        error.style.display = 'block';
-    }
-}
-
-window.addEventListener('load', async () => {
-    const resp = await fetch('auth.php');
-    const data = await resp.json();
-    if (!data.authenticated) {
-        document.getElementById('loginOverlay').style.display = 'flex';
-    } else {
-        document.getElementById('loginOverlay').style.display = 'none';
-        refreshDirectory();
-    }
-});
 
 </script>
 
