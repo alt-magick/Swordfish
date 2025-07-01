@@ -55,7 +55,7 @@ if ($action === 'create') {
         exit;
     }
 
-    $baseDir = realpath(__DIR__ . '/files');  // adjust this to your root folder
+    $baseDir = realpath(__DIR__ . '/home/projects');  // adjust this to your root folder
     $fullPath = __DIR__ . '/' . $file;
 
     // Normalize and resolve the path
@@ -101,7 +101,7 @@ if ($action === 'mkdir') {
         exit;
     }
 
-    $baseDir = realpath(__DIR__ . '/files');  // your base root folder
+    $baseDir = realpath(__DIR__ . '/home/projects');  // your base root folder
     $fullPath = __DIR__ . '/' . $dir;
 
     // Normalize path
@@ -136,7 +136,7 @@ if ($action === 'mkdir') {
 if ($_GET['action'] === 'delete') {
     $data = json_decode(file_get_contents('php://input'), true);
     $path = $data['path'];
-    if (strpos(realpath($path), realpath('files')) !== 0) {
+    if (strpos(realpath($path), realpath('/home/projects')) !== 0) {
         echo json_encode(['error' => 'Unauthorized']);
         exit;
     }
@@ -160,8 +160,8 @@ if ($_GET['action'] === 'rename') {
 
     // Security check: keep operations inside 'files' directory
     if (
-        strpos(realpath($oldPath), realpath('files')) !== 0 ||
-        strpos(realpath(dirname($newPath)), realpath('files')) !== 0
+        strpos(realpath($oldPath), realpath('/home/projects')) !== 0 ||
+        strpos(realpath(dirname($newPath)), realpath('/home/projects')) !== 0
     ) {
         echo json_encode(['error' => 'Unauthorized']);
         exit;
@@ -179,6 +179,76 @@ if ($_GET['action'] === 'rename') {
 
     if (!rename($oldPath, $newPath)) {
         echo json_encode(['error' => 'Rename failed']);
+        exit;
+    }
+
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+if ($_GET['action'] === 'download') {
+    if (!isset($_GET['path'])) {
+        http_response_code(400);
+        echo "Missing file path.";
+        exit;
+    }
+
+    // Get the requested relative path (like "files/projects/readme.txt")
+    $relativePath = $_GET['path'];
+
+    // Map "files/projects" to the real system path
+    $baseDir = realpath('/home/projects');  // the true directory on disk
+    $requestedPath = realpath($baseDir . '/' . basename($relativePath));
+
+    // Ensure the requested file is inside /home/projects
+    if (!$requestedPath || strpos($requestedPath, $baseDir) !== 0 || !file_exists($requestedPath)) {
+        http_response_code(403);
+        echo "Unauthorized or file does not exist.";
+        exit;
+    }
+
+    // Force download headers
+    header('Content-Description: File Transfer');
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="' . basename($requestedPath) . '"');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($requestedPath));
+    readfile($requestedPath);
+    exit;
+}
+
+if ($_GET['action'] === 'upload') {
+    $baseDir = realpath('/home/projects');  // your actual base directory
+
+    $uploadDir = $_POST['dir'] ?? '';
+    $relativePath = preg_replace('#^files/projects/?#', '', ltrim($uploadDir, '/'));
+    $targetDir = rtrim($baseDir . '/' . $relativePath, '/');
+
+    // Auto-create the folder if it doesn't exist
+    if (!is_dir($targetDir)) {
+        mkdir($targetDir, 0777, true);
+    }
+
+    $realTarget = realpath($targetDir);
+
+    // Security check: final resolved path must still be inside /home/projects
+    if (!$realTarget || strpos($realTarget, $baseDir) !== 0) {
+        echo json_encode(['error' => 'Invalid upload directory.']);
+        exit;
+    }
+
+    if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode(['error' => 'Upload failed.']);
+        exit;
+    }
+
+    $filename = basename($_FILES['file']['name']);
+    $destination = $realTarget . '/' . $filename;
+
+    if (!move_uploaded_file($_FILES['file']['tmp_name'], $destination)) {
+        echo json_encode(['error' => 'Failed to save uploaded file.']);
         exit;
     }
 
