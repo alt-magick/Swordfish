@@ -887,11 +887,16 @@ saveFileBtn.onclick = async () => {
                 const sideIndex = Math.floor(faceIndex / 2);
                 const label = this.faceLabels[sideIndex];
 if (label) {
+    if(label === "back"){
+         navigateUp();
+	}
+else{
     openFile(label).then(() => {
         fileNameElem.textContent = label;
     }).catch(err => {
         alert("Failed to open file: " + err.message);
     });
+}
 }            }
         }
     }
