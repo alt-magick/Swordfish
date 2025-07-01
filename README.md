@@ -3,7 +3,7 @@ Graphical Web Terminal<br>
 
 Drop the files in a web directory that is http (not https).<br>
 You need to create a new folder in that directory falled "files".<br>
-The deffault password is "password".<br>
+The deffault username/password is swordfish/swordfish.<br>
 <br>
 Once the website is live you need to setup ttyd:<br>
 <br>
@@ -27,3 +27,5 @@ sudo find /path/to/your/folder -type d -exec chmod 775 {} \;<br>
 sudo find /path/to/your/folder -type f -exec chmod 775 {} \;<br>
 sudo chmod -R u+rwX /path/to/your/folder<br>
 <br>
+
+(Bug with symbolic link. Sub directory of program needs to be files/projects and has to link to /home/projects)
