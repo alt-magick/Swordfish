@@ -246,10 +246,12 @@ document.getElementById('save-btn').onclick = function() {
     .catch(() => alert("Failed to save " + currentFile));
 };
 
+// New button
 document.getElementById('new-btn').onclick = function() {
-    var name = prompt("Enter new filename (must end with .txt):","my_file.txt");
+    var name = prompt("Enter new filename (must end with .txt):", "my_file.txt");
     if(!name) return;
     if(!name.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
+
     fetch('new_file.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -258,11 +260,16 @@ document.getElementById('new-btn').onclick = function() {
     .then(resp => resp.text())
     .then(msg => {
         alert(msg);
+        if(msg.toLowerCase().includes("created")) {
+            currentFile = name;
+            codeView.innerText = "";
+        }
         loadFileList();
     })
     .catch(() => alert("Failed to create file " + name));
 };
 
+// Delete button
 document.getElementById('delete-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
     fetch('delete_file.php', {
@@ -273,18 +280,20 @@ document.getElementById('delete-btn').onclick = function() {
     .then(resp => resp.text())
     .then(msg => {
         alert(msg);
-        loadFileList();
-        codeView.innerText = "";
         currentFile = "";
+        codeView.innerText = "";
+        loadFileList();
     })
     .catch(() => alert("Failed to delete " + currentFile));
 };
 
+// Rename button
 document.getElementById('rename-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
     var newName = prompt("Enter new filename (must end with .txt):", currentFile);
     if(!newName) return;
     if(!newName.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
+
     fetch('rename_file.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -293,8 +302,8 @@ document.getElementById('rename-btn').onclick = function() {
     .then(resp => resp.text())
     .then(msg => {
         alert(msg);
-        loadFileList();
         currentFile = newName;
+        loadFileList();
     })
     .catch(() => alert("Failed to rename " + currentFile));
 };
