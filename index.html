@@ -1,0 +1,308 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dynamic File Tree</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/vis-network.min.css" rel="stylesheet"/>
+
+<style>
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.top-container {
+    display: flex;
+    flex-direction: row;
+    height: 55%;
+}
+
+#file-list {
+    width: 200px;
+    overflow: auto;
+    padding: 10px;
+    background: #f0f0f0;
+    font-size: 28px;
+    border-right: 1px solid #d3d3d3;
+}
+
+.file-item {
+    margin: 5px 0;
+    cursor: pointer;
+    font-weight: bold;
+}
+.file-item:hover {
+    color: blue;
+}
+
+#network {
+    flex: 1;
+}
+
+#bottom-container {
+    height: 45%;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid #d3d3d3;
+}
+
+#code-view {
+    flex: 1;
+    overflow: auto;
+    font-family: monospace;
+    font-size: 42px;
+    white-space: pre;
+    outline: none;
+    position: relative;
+    background: #fff;
+    border: 3px solid #d3d3d3;
+    box-sizing: border-box;
+    padding: 10px;
+}
+
+#code-view::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    right: 3px;
+    bottom: 3px;
+    border: 5px solid #f0f0f0;
+    pointer-events: none;
+    box-sizing: border-box;
+}
+
+#code-view[contenteditable="true"] {
+    cursor: text;
+}
+
+#button-bar {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    background: #ddd;
+    border-top: 1px solid #d3d3d3;
+}
+
+.button {
+    height: 80px;
+    font-size: 42px;
+    margin-right: 10px;
+    cursor: pointer;
+    padding: 0 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="top-container">
+    <div id="file-list"></div>
+    <div id="network"></div>
+</div>
+
+<div id="bottom-container">
+    <div id="code-view" contenteditable="true"></div>
+    <div id="button-bar">
+        <button id="save-btn" class="button">Save</button>
+        <button id="new-btn" class="button">New</button>
+        <button id="delete-btn" class="button">Delete</button>
+        <button id="rename-btn" class="button">Rename</button>
+    </div>
+</div>
+
+<script>
+var nodes = new vis.DataSet([{"id": 0, "label": "Main", "x": 400, "y": 300, "fixed": {"x": true, "y": true}, "shape": "ellipse", "size": 100, "font": {"size": 42, "face": "Arial"}}]);
+var edges = new vis.DataSet([]);
+var mainNodeId = 0;
+var currentFile = "";
+var centerY = 300;
+var rightStartX = 700;
+var leftSiblingX = 125;
+var spacing = 70;
+
+var network = new vis.Network(
+    document.getElementById('network'),
+    { nodes: nodes, edges: edges },
+    {
+        physics: false,
+        interaction: {
+            dragNodes: false,
+            dragView: true,
+            zoomView: true
+        }
+    }
+);
+
+var codeView = document.getElementById('code-view');
+
+// --------------------------
+// Load file list
+// --------------------------
+function loadFileList(){
+    fetch('file_list.php?' + new Date().getTime())
+        .then(resp => resp.json())
+        .then(files => {
+            var container = document.getElementById('file-list');
+            container.innerHTML = '';
+            files.forEach(f => {
+                var div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerText = f;
+                div.onclick = function(){ loadFileAndNodes(f); };
+                container.appendChild(div);
+            });
+        })
+        .catch(() => {
+            document.getElementById('file-list').innerText = "Failed to load file list";
+        });
+}
+
+// --------------------------
+// Load file + nodes
+// --------------------------
+function loadFileAndNodes(filename){
+    fetch(filename + '?' + new Date().getTime())
+        .then(resp => resp.text())
+        .then(text => {
+            codeView.innerText = text;
+            currentFile = filename;
+            nodes.update({id: mainNodeId, label: filename});
+            var existing = nodes.getIds().filter(id => id !== mainNodeId);
+            existing.forEach(id => nodes.remove(id));
+            edges.clear();
+
+            var lines = text.split('\n').filter(l => l.trim().startsWith('#'));
+            lines.forEach((line, i) => {
+                var cleanLabel = line.replace(/^#/, '').trim();
+                var id = i + 1;
+                nodes.add({
+                    id: id,
+                    label: cleanLabel,
+                    x: leftSiblingX,
+                    y: centerY + (i - Math.floor(lines.length/2)) * spacing,
+                    fixed: {x: true, y: true},
+                    shape: 'ellipse',
+                    size: 85,
+                    font: {size: 42, face: "Arial"}
+                });
+                edges.add({ from: mainNodeId, to: id });
+            });
+        })
+        .catch(() => codeView.innerText = "Failed to load " + filename);
+}
+
+// --------------------------
+// Node click with animated, non-overlapping movement
+// --------------------------
+network.on('click', function(params) {
+    if(params.nodes.length === 0) return;
+    var node = params.nodes[0];
+    if(node === mainNodeId){
+        var filename = nodes.get(mainNodeId).label;
+        if(filename !== "Main") { loadFileAndNodes(filename); }
+        return;
+    }
+
+    nodes.update({ id: node, x: rightStartX, y: centerY }, 'animate');
+
+    var childNodes = nodes.getIds().filter(id => id !== mainNodeId && id !== node);
+    var totalLeft = childNodes.length;
+    childNodes.forEach((id, index) => {
+        var yPos = centerY + (index - Math.floor((totalLeft-1)/2)) * spacing;
+        nodes.update({ id: id, x: leftSiblingX, y: yPos }, 'animate');
+    });
+
+    var filename = nodes.get(node).label.trim();
+    fetch(filename + '?' + new Date().getTime())
+        .then(resp => resp.text())
+        .then(text => { codeView.innerText = text; currentFile = filename; })
+        .catch(() => codeView.innerText = "Failed to load " + filename);
+});
+
+// --------------------------
+// Buttons
+// --------------------------
+document.getElementById('save-btn').onclick = function() {
+    if(!currentFile) { alert("No file selected!"); return; }
+    fetch('save_file.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filename: currentFile, content: codeView.innerText})
+    })
+    .then(resp => resp.text())
+    .then(msg => alert(msg))
+    .catch(() => alert("Failed to save " + currentFile));
+};
+
+document.getElementById('new-btn').onclick = function() {
+    var name = prompt("Enter new filename (must end with .txt):","my_file.txt");
+    if(!name) return;
+    if(!name.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
+    fetch('new_file.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filename: name})
+    })
+    .then(resp => resp.text())
+    .then(msg => {
+        alert(msg);
+        loadFileList();
+    })
+    .catch(() => alert("Failed to create file " + name));
+};
+
+document.getElementById('delete-btn').onclick = function() {
+    if(!currentFile) { alert("No file selected!"); return; }
+    fetch('delete_file.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filename: currentFile})
+    })
+    .then(resp => resp.text())
+    .then(msg => {
+        alert(msg);
+        loadFileList();
+        codeView.innerText = "";
+        currentFile = "";
+    })
+    .catch(() => alert("Failed to delete " + currentFile));
+};
+
+document.getElementById('rename-btn').onclick = function() {
+    if(!currentFile) { alert("No file selected!"); return; }
+    var newName = prompt("Enter new filename (must end with .txt):", currentFile);
+    if(!newName) return;
+    if(!newName.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
+    fetch('rename_file.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({oldname: currentFile, newname: newName})
+    })
+    .then(resp => resp.text())
+    .then(msg => {
+        alert(msg);
+        loadFileList();
+        currentFile = newName;
+    })
+    .catch(() => alert("Failed to rename " + currentFile));
+};
+
+window.onload = function(){
+    loadFileList();
+};
+</script>
+
+</body>
+</html>
