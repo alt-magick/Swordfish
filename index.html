@@ -20,13 +20,11 @@ body {
     flex-direction: column;
     overflow: hidden;
 }
-
 .top-container {
     display: flex;
     flex-direction: row;
     height: 55%;
 }
-
 #file-list {
     width: 200px;
     overflow: auto;
@@ -35,27 +33,24 @@ body {
     font-size: 28px;
     border-right: 1px solid #d3d3d3;
 }
-
 .file-item {
     margin: 5px 0;
     cursor: pointer;
     font-weight: bold;
+    padding: 2px 5px;
 }
 .file-item:hover {
     color: blue;
 }
-
 #network {
     flex: 1;
 }
-
 #bottom-container {
     height: 45%;
     display: flex;
     flex-direction: column;
     border-top: 1px solid #d3d3d3;
 }
-
 #code-view {
     flex: 1;
     overflow: auto;
@@ -69,7 +64,6 @@ body {
     box-sizing: border-box;
     padding: 10px;
 }
-
 #code-view::before {
     content: "";
     position: absolute;
@@ -81,26 +75,29 @@ body {
     pointer-events: none;
     box-sizing: border-box;
 }
-
 #code-view[contenteditable="true"] {
     cursor: text;
 }
-
 #button-bar {
-    height: 100px;
+    height: 80px;
     display: flex;
     align-items: center;
     padding: 5px 10px;
     background: #ddd;
     border-top: 1px solid #d3d3d3;
 }
-
 .button {
-    height: 80px;
-    font-size: 42px;
+    height: 60px;
+    font-size: 32px;
     margin-right: 10px;
     cursor: pointer;
-    padding: 0 20px;
+    padding: 0 15px;
+}
+#search-box {
+    height: 60px;
+    font-size: 32px;
+    padding: 0 10px;
+    flex: 1;
 }
 </style>
 </head>
@@ -119,6 +116,7 @@ body {
         <button id="new-btn" class="button">New</button>
         <button id="delete-btn" class="button">Delete</button>
         <button id="rename-btn" class="button">Rename</button>
+        <input type="text" id="search-box" placeholder="Search child nodes or files...">
     </div>
 </div>
 
@@ -195,7 +193,8 @@ function loadFileAndNodes(filename){
                     fixed: {x: true, y: true},
                     shape: 'ellipse',
                     size: 85,
-                    font: {size: 42, face: "Arial"}
+                    font: {size: 42, face: "Arial"},
+                    color: {background:'#FFFFFF'}
                 });
                 edges.add({ from: mainNodeId, to: id });
             });
@@ -204,7 +203,7 @@ function loadFileAndNodes(filename){
 }
 
 // --------------------------
-// Node click with animated, non-overlapping movement
+// Node click with animated movement
 // --------------------------
 network.on('click', function(params) {
     if(params.nodes.length === 0) return;
@@ -232,7 +231,7 @@ network.on('click', function(params) {
 });
 
 // --------------------------
-// Buttons
+// Buttons (Save/New/Delete/Rename)
 // --------------------------
 document.getElementById('save-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
@@ -246,7 +245,6 @@ document.getElementById('save-btn').onclick = function() {
     .catch(() => alert("Failed to save " + currentFile));
 };
 
-// New button
 document.getElementById('new-btn').onclick = function() {
     var name = prompt("Enter new filename (must end with .txt):", "my_file.txt");
     if(!name) return;
@@ -269,7 +267,6 @@ document.getElementById('new-btn').onclick = function() {
     .catch(() => alert("Failed to create file " + name));
 };
 
-// Delete button
 document.getElementById('delete-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
     fetch('delete_file.php', {
@@ -287,7 +284,6 @@ document.getElementById('delete-btn').onclick = function() {
     .catch(() => alert("Failed to delete " + currentFile));
 };
 
-// Rename button
 document.getElementById('rename-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
     var newName = prompt("Enter new filename (must end with .txt):", currentFile);
@@ -308,9 +304,54 @@ document.getElementById('rename-btn').onclick = function() {
     .catch(() => alert("Failed to rename " + currentFile));
 };
 
-window.onload = function(){
-    loadFileList();
-};
+// --------------------------
+// Combined search: child nodes + file list
+// --------------------------
+let searchTimer = null;
+document.getElementById('search-box').addEventListener('keyup', function() {
+    clearTimeout(searchTimer);
+    let query = this.value.trim().toLowerCase();
+
+    searchTimer = setTimeout(() => {
+        // --- Child nodes ---
+        var allNodes = nodes.get();
+        allNodes.forEach(n => {
+            if(n.id === mainNodeId) return;
+            nodes.update({id: n.id, color: {background:'#FFFFFF'}, size:85});
+            if(query === "") return;
+
+            let fileMatch = n.label.toLowerCase().includes(query);
+            fetch(n.label)
+                .then(resp => resp.text())
+                .then(text => {
+                    if(fileMatch || text.toLowerCase().includes(query)) {
+                        nodes.update({id:n.id, color: {background:'#FFA500'}, size:120});
+                    }
+                }).catch(()=>{});
+        });
+
+        // --- File list ---
+        var fileItems = document.querySelectorAll('#file-list .file-item');
+        fileItems.forEach(div => {
+            div.style.background = 'none';
+            let filename = div.innerText.toLowerCase();
+            if(query === "") return;
+            if(filename.includes(query)) {
+                div.style.background = '#FFA500';
+                return;
+            }
+            fetch(div.innerText)
+                .then(resp => resp.text())
+                .then(text => {
+                    if(text.toLowerCase().includes(query)) {
+                        div.style.background = '#FFA500';
+                    }
+                }).catch(()=>{});
+        });
+    }, 250);
+});
+
+window.onload = function(){ loadFileList(); };
 </script>
 
 </body>
