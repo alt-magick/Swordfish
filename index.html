@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -42,9 +41,7 @@ body {
 .file-item:hover {
     color: blue;
 }
-#network {
-    flex: 1;
-}
+#network { flex: 1; }
 #bottom-container {
     height: 45%;
     display: flex;
@@ -64,9 +61,7 @@ body {
     box-sizing: border-box;
     padding: 10px;
 }
-#code-view[contenteditable="true"] {
-    cursor: text;
-}
+#code-view[contenteditable="true"] { cursor: text; }
 #button-bar {
     height: 80px;
     display: flex;
@@ -110,7 +105,7 @@ body {
 </div>
 
 <script>
-var nodes = new vis.DataSet([{"id": 0, "label": "Main", "x": 400, "y": 300, "fixed": {"x": true, "y": true}, "shape": "ellipse", "size": 100, "font": {"size": 42, "face": "Arial"}, "color": {"background": "#FFFFFF", "border": "#000000", "highlight": {"background": "#FFFFFF", "border": "#000000"}, "hover": {"background": "#FFFFFF", "border": "#000000"}}}]);
+var nodes = new vis.DataSet([{"id": 0, "label": "Main", "x": 400, "y": 300, "fixed": {"x": true, "y": true}, "shape": "ellipse", "size": 100, "font": {"size": 42, "face": "Arial"}, "color": {"background": "#FFFFFF", "border": "#000000", "highlight": {"background": "#FFFFFF", "border": "#000000"}, "hover": {"background": "#FFFFFF", "border": "#000000"}}, "fullPath": ""}]);
 var edges = new vis.DataSet([]);
 var mainNodeId = 0;
 var currentFile = "";
@@ -157,10 +152,8 @@ function loadFileList(path = "") {
                         let newPath = parts.join('/');
                         loadFileList(newPath);
                     } else if(f.endsWith('/')) {
-                        // folder clicked
                         loadFileList(path ? path + '/' + f.slice(0,-1) : f.slice(0,-1));
                     } else {
-                        // file clicked
                         loadFileAndNodes(path ? path + '/' + f : f);
                     }
                 };
@@ -182,7 +175,15 @@ function loadFileAndNodes(filename){
         .then(text => {
             codeView.innerText = text;
             currentFile = filename;
-            nodes.update({id: mainNodeId, label: filename});
+
+            // Update main node: show only filename but keep full path internally
+            nodes.update({
+                id: mainNodeId,
+                label: filename.split('/').pop(),
+                fullPath: filename
+            });
+
+            // Remove existing child nodes
             var existing = nodes.getIds().filter(id => id !== mainNodeId);
             existing.forEach(id => nodes.remove(id));
             edges.clear();
@@ -220,9 +221,12 @@ function loadFileAndNodes(filename){
 network.on('click', function(params) {
     if(params.nodes.length === 0) return;
     var node = params.nodes[0];
+
     if(node === mainNodeId){
-        var filename = nodes.get(mainNodeId).label;
-        if(filename !== "Main") { loadFileAndNodes(filename); }
+        var nodeData = nodes.get(mainNodeId);
+        if(nodeData.fullPath && nodeData.fullPath !== "Main") {
+            loadFileAndNodes(nodeData.fullPath);
+        }
         return;
     }
 
@@ -255,15 +259,16 @@ network.on('click', function(params) {
         }, 'animate');
     });
 
-    var filename = nodes.get(node).label.trim();
-    fetch(filename + '?' + new Date().getTime())
+    var nodeData = nodes.get(node);
+    fetch(nodeData.fullPath ? nodeData.fullPath : nodeData.label + '?' + new Date().getTime())
         .then(resp => resp.text())
-        .then(text => { codeView.innerText = text; currentFile = filename; refreshSearch(); })
-        .catch(() => codeView.innerText = "Failed to load " + filename);
+        .then(text => { codeView.innerText = text; currentFile = nodeData.fullPath || nodeData.label; refreshSearch(); })
+        .catch(() => codeView.innerText = "Failed to load " + nodeData.label);
 });
 
 // --------------------------
 // Buttons (Save/New/Delete/Rename)
+// --------------------------
 document.getElementById('save-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
     fetch('save_file.php', {
@@ -278,6 +283,7 @@ document.getElementById('save-btn').onclick = function() {
 
 // --------------------------
 // New file button
+// --------------------------
 document.getElementById('new-btn').onclick = function() {
     var name = prompt("Enter new filename (must end with .txt or '/' for folder):", "my_file.txt");
     if(!name) return;
@@ -343,7 +349,8 @@ document.getElementById('rename-btn').onclick = function() {
 };
 
 // --------------------------
-// Search / highlight refresh
+// Search / highlight refresh function
+// --------------------------
 function refreshSearch(){
     let query = searchBox.value.trim().toLowerCase();
     var allNodes = nodes.get();
