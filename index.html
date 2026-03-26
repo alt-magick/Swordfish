@@ -144,6 +144,7 @@ var network = new vis.Network(
 );
 
 var codeView = document.getElementById('code-view');
+var searchBox = document.getElementById('search-box');
 
 // --------------------------
 // Load file list
@@ -161,6 +162,7 @@ function loadFileList(){
                 div.onclick = function(){ loadFileAndNodes(f); };
                 container.appendChild(div);
             });
+            refreshSearch();
         })
         .catch(() => {
             document.getElementById('file-list').innerText = "Failed to load file list";
@@ -203,6 +205,7 @@ function loadFileAndNodes(filename){
                 });
                 edges.add({ from: mainNodeId, to: id });
             });
+            refreshSearch();
         })
         .catch(() => codeView.innerText = "Failed to load " + filename);
 }
@@ -219,7 +222,6 @@ network.on('click', function(params) {
         return;
     }
 
-    // Move clicked node to right
     nodes.update({
         id: node,
         x: rightStartX,
@@ -232,7 +234,6 @@ network.on('click', function(params) {
         }
     });
 
-    // Move remaining nodes to left
     var childNodes = nodes.getIds().filter(id => id !== mainNodeId && id !== node);
     var totalLeft = childNodes.length;
     childNodes.forEach((id, index) => {
@@ -253,13 +254,12 @@ network.on('click', function(params) {
     var filename = nodes.get(node).label.trim();
     fetch(filename + '?' + new Date().getTime())
         .then(resp => resp.text())
-        .then(text => { codeView.innerText = text; currentFile = filename; })
+        .then(text => { codeView.innerText = text; currentFile = filename; refreshSearch(); })
         .catch(() => codeView.innerText = "Failed to load " + filename);
 });
 
 // --------------------------
-// Buttons
-// --------------------------
+// Buttons (Save/New/Delete/Rename)
 document.getElementById('save-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
     fetch('save_file.php', {
@@ -276,7 +276,6 @@ document.getElementById('new-btn').onclick = function() {
     var name = prompt("Enter new filename (must end with .txt):", "my_file.txt");
     if(!name) return;
     if(!name.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
-
     fetch('new_file.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -316,7 +315,6 @@ document.getElementById('rename-btn').onclick = function() {
     var newName = prompt("Enter new filename (must end with .txt):", currentFile);
     if(!newName) return;
     if(!newName.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
-
     fetch('rename_file.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -332,78 +330,72 @@ document.getElementById('rename-btn').onclick = function() {
 };
 
 // --------------------------
-// Combined search (nodes + file list + file contents)
-document.getElementById('search-box').addEventListener('keyup', function() {
-    let query = this.value.trim().toLowerCase();
-    clearTimeout(window.searchTimer);
-    window.searchTimer = setTimeout(() => {
+// Search / highlight refresh
+function refreshSearch(){
+    let query = searchBox.value.trim().toLowerCase();
+    if(!query) return;
 
-        var allNodes = nodes.get();
+    var allNodes = nodes.get();
+    allNodes.forEach(n => {
+        nodes.update({
+            id: n.id,
+            color: {
+                background: '#FFFFFF',
+                border: '#000000',
+                highlight: {background: '#FFFFFF', border: '#000000'},
+                hover: {background: '#FFFFFF', border: '#000000'}
+            },
+            size: n.id === mainNodeId ? 100 : 85
+        });
+    });
 
-        // Reset all nodes to white
-        allNodes.forEach(n => {
+    var fileItems = document.querySelectorAll('#file-list .file-item');
+    fileItems.forEach(div => { div.style.background = 'none'; });
+
+    allNodes.forEach(n => {
+        if(n.label.toLowerCase().includes(query)){
             nodes.update({
                 id: n.id,
                 color: {
-                    background: '#FFFFFF',
+                    background: '#FFA500',
                     border: '#000000',
-                    highlight: {background: '#FFFFFF', border: '#000000'},
-                    hover: {background: '#FFFFFF', border: '#000000'}
+                    highlight: {background: '#FFA500', border: '#000000'},
+                    hover: {background: '#FFA500', border: '#000000'}
                 },
-                size: n.id === mainNodeId ? 100 : 85
+                size: n.id === mainNodeId ? 120 : 120
             });
-        });
+        }
+    });
 
-        // Reset all file list backgrounds
-        var fileItems = document.querySelectorAll('#file-list .file-item');
-        fileItems.forEach(div => { div.style.background = 'none'; });
+    fileItems.forEach(div => {
+        fetch(div.innerText)
+            .then(resp => resp.text())
+            .then(text => {
+                if(div.innerText.toLowerCase().includes(query) || text.toLowerCase().includes(query)){
+                    div.style.background = '#FFA500';
+                    allNodes.forEach(n => {
+                        if(n.label === div.innerText){
+                            nodes.update({
+                                id: n.id,
+                                color: {
+                                    background: '#FFA500',
+                                    border: '#000000',
+                                    highlight: {background: '#FFA500', border: '#000000'},
+                                    hover: {background: '#FFA500', border: '#000000'}
+                                },
+                                size: n.id === mainNodeId ? 120 : 120
+                            });
+                        }
+                    });
+                }
+            }).catch(()=>{});
+    });
+}
 
-        if(query === "") return;
-
-        // Highlight nodes whose label matches
-        allNodes.forEach(n => {
-            if(n.label.toLowerCase().includes(query)) {
-                nodes.update({
-                    id: n.id,
-                    color: {
-                        background: '#FFA500',
-                        border: '#000000',
-                        highlight: {background: '#FFA500', border: '#000000'},
-                        hover: {background: '#FFA500', border: '#000000'}
-                    },
-                    size: n.id === mainNodeId ? 120 : 120
-                });
-            }
-        });
-
-        // Highlight files whose name or contents match
-        fileItems.forEach(div => {
-            fetch(div.innerText)
-                .then(resp => resp.text())
-                .then(text => {
-                    if(div.innerText.toLowerCase().includes(query) || text.toLowerCase().includes(query)) {
-                        div.style.background = '#FFA500';
-
-                        // Highlight node with same label as file (if exists)
-                        allNodes.forEach(n => {
-                            if(n.label === div.innerText) {
-                                nodes.update({
-                                    id: n.id,
-                                    color: {
-                                        background: '#FFA500',
-                                        border: '#000000',
-                                        highlight: {background: '#FFA500', border: '#000000'},
-                                        hover: {background: '#FFA500', border: '#000000'}
-                                    },
-                                    size: n.id === mainNodeId ? 120 : 120
-                                });
-                            }
-                        });
-                    }
-                }).catch(()=>{});
-        });
-
-    }, 250);
+// Also refresh search on user typing
+searchBox.addEventListener('keyup', function() {
+    clearTimeout(window.searchTimer);
+    window.searchTimer = setTimeout(refreshSearch, 250);
 });
 
 window.onload = function(){ loadFileList(); };
