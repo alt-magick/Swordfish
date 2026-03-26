@@ -121,7 +121,7 @@ body {
 </div>
 
 <script>
-var nodes = new vis.DataSet([{"id": 0, "label": "Main", "x": 400, "y": 300, "fixed": {"x": true, "y": true}, "shape": "ellipse", "size": 100, "font": {"size": 42, "face": "Arial"}}]);
+var nodes = new vis.DataSet([{"id": 0, "label": "Main", "x": 400, "y": 300, "fixed": {"x": true, "y": true}, "shape": "ellipse", "size": 100, "font": {"size": 42, "face": "Arial"}, "color": {"background": "#FFFFFF", "border": "#000000", "highlight": {"background": "#FFFFFF", "border": "#000000"}, "hover": {"background": "#FFFFFF", "border": "#000000"}}}]);
 var edges = new vis.DataSet([]);
 var mainNodeId = 0;
 var currentFile = "";
@@ -194,7 +194,12 @@ function loadFileAndNodes(filename){
                     shape: 'ellipse',
                     size: 85,
                     font: {size: 42, face: "Arial"},
-                    color: {background:'#FFFFFF'}
+                    color: {
+                        background: '#FFFFFF',
+                        border: '#000000',
+                        highlight: {background: '#FFFFFF', border: '#000000'},
+                        hover: {background: '#FFFFFF', border: '#000000'}
+                    }
                 });
                 edges.add({ from: mainNodeId, to: id });
             });
@@ -203,7 +208,7 @@ function loadFileAndNodes(filename){
 }
 
 // --------------------------
-// Node click with animated movement
+// Node click
 // --------------------------
 network.on('click', function(params) {
     if(params.nodes.length === 0) return;
@@ -214,13 +219,35 @@ network.on('click', function(params) {
         return;
     }
 
-    nodes.update({ id: node, x: rightStartX, y: centerY }, 'animate');
+    // Move clicked node to right
+    nodes.update({
+        id: node,
+        x: rightStartX,
+        y: centerY,
+        color: {
+            background: '#FFFFFF',
+            border: '#000000',
+            highlight: {background: '#FFFFFF', border: '#000000'},
+            hover: {background: '#FFFFFF', border: '#000000'}
+        }
+    });
 
+    // Move remaining nodes to left
     var childNodes = nodes.getIds().filter(id => id !== mainNodeId && id !== node);
     var totalLeft = childNodes.length;
     childNodes.forEach((id, index) => {
         var yPos = centerY + (index - Math.floor((totalLeft-1)/2)) * spacing;
-        nodes.update({ id: id, x: leftSiblingX, y: yPos }, 'animate');
+        nodes.update({
+            id: id,
+            x: leftSiblingX,
+            y: yPos,
+            color: {
+                background: '#FFFFFF',
+                border: '#000000',
+                highlight: {background: '#FFFFFF', border: '#000000'},
+                hover: {background: '#FFFFFF', border: '#000000'}
+            }
+        }, 'animate');
     });
 
     var filename = nodes.get(node).label.trim();
@@ -231,7 +258,7 @@ network.on('click', function(params) {
 });
 
 // --------------------------
-// Buttons (Save/New/Delete/Rename)
+// Buttons
 // --------------------------
 document.getElementById('save-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
@@ -305,49 +332,77 @@ document.getElementById('rename-btn').onclick = function() {
 };
 
 // --------------------------
-// Combined search: child nodes + file list
-// --------------------------
-let searchTimer = null;
+// Combined search (nodes + file list + file contents)
 document.getElementById('search-box').addEventListener('keyup', function() {
-    clearTimeout(searchTimer);
     let query = this.value.trim().toLowerCase();
+    clearTimeout(window.searchTimer);
+    window.searchTimer = setTimeout(() => {
 
-    searchTimer = setTimeout(() => {
-        // --- Child nodes ---
         var allNodes = nodes.get();
-        allNodes.forEach(n => {
-            if(n.id === mainNodeId) return;
-            nodes.update({id: n.id, color: {background:'#FFFFFF'}, size:85});
-            if(query === "") return;
 
-            let fileMatch = n.label.toLowerCase().includes(query);
-            fetch(n.label)
-                .then(resp => resp.text())
-                .then(text => {
-                    if(fileMatch || text.toLowerCase().includes(query)) {
-                        nodes.update({id:n.id, color: {background:'#FFA500'}, size:120});
-                    }
-                }).catch(()=>{});
+        // Reset all nodes to white
+        allNodes.forEach(n => {
+            nodes.update({
+                id: n.id,
+                color: {
+                    background: '#FFFFFF',
+                    border: '#000000',
+                    highlight: {background: '#FFFFFF', border: '#000000'},
+                    hover: {background: '#FFFFFF', border: '#000000'}
+                },
+                size: n.id === mainNodeId ? 100 : 85
+            });
         });
 
-        // --- File list ---
+        // Reset all file list backgrounds
         var fileItems = document.querySelectorAll('#file-list .file-item');
-        fileItems.forEach(div => {
-            div.style.background = 'none';
-            let filename = div.innerText.toLowerCase();
-            if(query === "") return;
-            if(filename.includes(query)) {
-                div.style.background = '#FFA500';
-                return;
+        fileItems.forEach(div => { div.style.background = 'none'; });
+
+        if(query === "") return;
+
+        // Highlight nodes whose label matches
+        allNodes.forEach(n => {
+            if(n.label.toLowerCase().includes(query)) {
+                nodes.update({
+                    id: n.id,
+                    color: {
+                        background: '#FFA500',
+                        border: '#000000',
+                        highlight: {background: '#FFA500', border: '#000000'},
+                        hover: {background: '#FFA500', border: '#000000'}
+                    },
+                    size: n.id === mainNodeId ? 120 : 120
+                });
             }
+        });
+
+        // Highlight files whose name or contents match
+        fileItems.forEach(div => {
             fetch(div.innerText)
                 .then(resp => resp.text())
                 .then(text => {
-                    if(text.toLowerCase().includes(query)) {
+                    if(div.innerText.toLowerCase().includes(query) || text.toLowerCase().includes(query)) {
                         div.style.background = '#FFA500';
+
+                        // Highlight node with same label as file (if exists)
+                        allNodes.forEach(n => {
+                            if(n.label === div.innerText) {
+                                nodes.update({
+                                    id: n.id,
+                                    color: {
+                                        background: '#FFA500',
+                                        border: '#000000',
+                                        highlight: {background: '#FFA500', border: '#000000'},
+                                        hover: {background: '#FFA500', border: '#000000'}
+                                    },
+                                    size: n.id === mainNodeId ? 120 : 120
+                                });
+                            }
+                        });
                     }
                 }).catch(()=>{});
         });
+
     }, 250);
 });
 
