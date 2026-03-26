@@ -150,9 +150,44 @@ function loadFileList(path = "") {
                         let parts = currentPath.split('/');
                         parts.pop();
                         let newPath = parts.join('/');
+
+                        // Clear editor and reset file
+                        codeView.innerText = "";
+                        currentFile = "";
+
+                        // Update main node label
+                        nodes.update({
+                            id: mainNodeId,
+                            label: newPath ? newPath.split('/').pop() : 'Main',
+                            fullPath: newPath
+                        });
+
+                        // Remove child nodes
+                        var childIds = nodes.getIds().filter(id => id !== mainNodeId);
+                        childIds.forEach(id => nodes.remove(id));
+                        edges.clear();
+
                         loadFileList(newPath);
                     } else if(f.endsWith('/')) {
-                        loadFileList(path ? path + '/' + f.slice(0,-1) : f.slice(0,-1));
+                        let newPath = path ? path + '/' + f.slice(0,-1) : f.slice(0,-1);
+
+                        // Clear editor and reset file
+                        codeView.innerText = "";
+                        currentFile = "";
+
+                        // Update main node label
+                        nodes.update({
+                            id: mainNodeId,
+                            label: f.slice(0,-1),
+                            fullPath: newPath
+                        });
+
+                        // Remove child nodes
+                        var childIds = nodes.getIds().filter(id => id !== mainNodeId);
+                        childIds.forEach(id => nodes.remove(id));
+                        edges.clear();
+
+                        loadFileList(newPath);
                     } else {
                         loadFileAndNodes(path ? path + '/' + f : f);
                     }
@@ -281,9 +316,6 @@ document.getElementById('save-btn').onclick = function() {
     .catch(() => alert("Failed to save " + currentFile));
 };
 
-// --------------------------
-// New file button
-// --------------------------
 document.getElementById('new-btn').onclick = function() {
     var name = prompt("Enter new filename (must end with .txt or '/' for folder):", "my_file.txt");
     if(!name) return;
