@@ -10,29 +10,30 @@ if (!$input) {
 
 $data = json_decode($input, true);
 if (!$data || !isset($data['filename'])) {
-    echo "Error: Invalid JSON or 'filename' missing!";
+    echo "Error: Invalid JSON or missing 'filename'!";
     exit;
 }
 
-$filename = basename($data['filename']); // sanitize filename
-$dir = __DIR__; // current directory
-$fullPath = $dir . DIRECTORY_SEPARATOR . $filename;
+$filename = $data['filename'];
 
-// Debugging info
-error_log("Attempting to delete file: $fullPath");
+// Prevent directory traversal attacks
+$filename = str_replace(['..', "\0"], '', $filename);
+$filepath = __DIR__ . DIRECTORY_SEPARATOR . $filename;
 
-// Check if file exists
-if (!file_exists($fullPath)) {
+if (!file_exists($filepath)) {
     echo "Error: File '$filename' does not exist!";
     exit;
 }
 
-// Attempt to delete
-$result = @unlink($fullPath);
-if (!$result) {
-    echo "Error: Could not delete file '$filename'. Check permissions!";
+// Attempt to delete file
+if (!is_writable($filepath)) {
+    echo "Error: File '$filename' is not writable!";
     exit;
 }
 
-echo "File '$filename' deleted successfully.";
+if (@unlink($filepath)) {
+    echo "File '$filename' deleted successfully.";
+} else {
+    echo "Error: Could not delete '$filename'. Check permissions!";
+}
 ?>

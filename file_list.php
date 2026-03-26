@@ -1,20 +1,40 @@
 <?php
 header('Content-Type: application/json');
 
-// Directory to scan
-$dir = __DIR__;
+// Set your main directory here (relative or absolute)
+$mainDir = __DIR__;  
 
-// Get all .txt files
-$files = array();
-foreach (scandir($dir) as $file) {
-    if (is_file($dir . DIRECTORY_SEPARATOR . $file) && pathinfo($file, PATHINFO_EXTENSION) === 'txt') {
-        $files[] = $file;
+$path = isset($_GET['path']) ? $_GET['path'] : '';
+$fullPath = realpath($mainDir . '/' . $path);
+
+// Security: prevent navigating above mainDir
+if (!$fullPath || strpos($fullPath, $mainDir) !== 0) {
+    echo json_encode([]);
+    exit;
+}
+
+$files = scandir($fullPath);
+$dirs = [];
+$txtFiles = [];
+
+foreach ($files as $file) {
+    if ($file === '.' || $file === '..') continue;
+
+    $fullFile = $fullPath . '/' . $file;
+
+    if (is_dir($fullFile)) {
+        $dirs[] = $file . '/'; // add slash for folders
+    } elseif (is_file($fullFile) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'txt') {
+        $txtFiles[] = $file;
     }
 }
 
-// Sort files alphabetically
-sort($files, SORT_NATURAL | SORT_FLAG_CASE);
+// Add ../ if not in main directory
+if (realpath($fullPath) != realpath($mainDir)) {
+    array_unshift($dirs, '../');
+}
 
-// Output JSON
-echo json_encode($files);
-?>
+// Merge directories first, then txt files
+$result = array_merge($dirs, $txtFiles);
+
+echo json_encode($result);

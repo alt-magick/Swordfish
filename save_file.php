@@ -14,17 +14,26 @@ if (!$data || !isset($data['filename']) || !isset($data['content'])) {
     exit;
 }
 
-$filename = basename($data['filename']); // sanitize filename
+$filename = $data['filename']; // keep relative path
 $content = $data['content'];
-$dir = __DIR__; // current directory
+
+// Sanitize to prevent path traversal
+$filename = str_replace(['..', "\0"], '', $filename);
+
+$dir = __DIR__; // base directory
 $filepath = $dir . DIRECTORY_SEPARATOR . $filename;
 
-// Debugging info
-error_log("Attempting to save file: $filepath");
+// Ensure subdirectories exist
+$subdir = dirname($filepath);
+if (!is_dir($subdir)) {
+    if (!mkdir($subdir, 0777, true)) {
+        echo "Error: Could not create directory '$subdir'.";
+        exit;
+    }
+}
 
 // Check if file exists
 if (!file_exists($filepath)) {
-    // If you want to allow saving new files, comment out the next two lines
     echo "Error: File '$filename' does not exist!";
     exit;
 }

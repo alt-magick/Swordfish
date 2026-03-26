@@ -64,17 +64,6 @@ body {
     box-sizing: border-box;
     padding: 10px;
 }
-#code-view::before {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    right: 3px;
-    bottom: 3px;
-    border: 5px solid #f0f0f0;
-    pointer-events: none;
-    box-sizing: border-box;
-}
 #code-view[contenteditable="true"] {
     cursor: text;
 }
@@ -125,6 +114,7 @@ var nodes = new vis.DataSet([{"id": 0, "label": "Main", "x": 400, "y": 300, "fix
 var edges = new vis.DataSet([]);
 var mainNodeId = 0;
 var currentFile = "";
+var currentPath = "";
 var centerY = 300;
 var rightStartX = 700;
 var leftSiblingX = 125;
@@ -149,8 +139,9 @@ var searchBox = document.getElementById('search-box');
 // --------------------------
 // Load file list
 // --------------------------
-function loadFileList(){
-    fetch('file_list.php?' + new Date().getTime())
+function loadFileList(path = "") {
+    currentPath = path;
+    fetch('file_list.php?path=' + encodeURIComponent(path) + '&_=' + new Date().getTime())
         .then(resp => resp.json())
         .then(files => {
             var container = document.getElementById('file-list');
@@ -159,7 +150,20 @@ function loadFileList(){
                 var div = document.createElement('div');
                 div.className = 'file-item';
                 div.innerText = f;
-                div.onclick = function(){ loadFileAndNodes(f); };
+                div.onclick = function() {
+                    if(f === '../') {
+                        let parts = currentPath.split('/');
+                        parts.pop();
+                        let newPath = parts.join('/');
+                        loadFileList(newPath);
+                    } else if(f.endsWith('/')) {
+                        // folder clicked
+                        loadFileList(path ? path + '/' + f.slice(0,-1) : f.slice(0,-1));
+                    } else {
+                        // file clicked
+                        loadFileAndNodes(path ? path + '/' + f : f);
+                    }
+                };
                 container.appendChild(div);
             });
             refreshSearch();
@@ -272,27 +276,30 @@ document.getElementById('save-btn').onclick = function() {
     .catch(() => alert("Failed to save " + currentFile));
 };
 
+// --------------------------
+// New file button
 document.getElementById('new-btn').onclick = function() {
-    var name = prompt("Enter new filename (must end with .txt):", "my_file.txt");
+    var name = prompt("Enter new filename (must end with .txt or '/' for folder):", "my_file.txt");
     if(!name) return;
-    if(!name.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
     fetch('new_file.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({filename: name})
+        body: JSON.stringify({filename: currentPath ? currentPath + '/' + name : name})
     })
     .then(resp => resp.text())
     .then(msg => {
         alert(msg);
         if(msg.toLowerCase().includes("created")) {
-            currentFile = name;
-            codeView.innerText = "";
+            currentFile = currentPath ? currentPath + '/' + name : name;
+            if(!name.endsWith('/')) codeView.innerText = "";
         }
-        loadFileList();
+        loadFileList(currentPath);
     })
     .catch(() => alert("Failed to create file " + name));
 };
 
+// --------------------------
+// Delete & Rename buttons (unchanged)
 document.getElementById('delete-btn').onclick = function() {
     if(!currentFile) { alert("No file selected!"); return; }
     fetch('delete_file.php', {
@@ -305,26 +312,32 @@ document.getElementById('delete-btn').onclick = function() {
         alert(msg);
         currentFile = "";
         codeView.innerText = "";
-        loadFileList();
+        loadFileList(currentPath);
     })
     .catch(() => alert("Failed to delete " + currentFile));
 };
 
 document.getElementById('rename-btn').onclick = function() {
-    if(!currentFile) { alert("No file selected!"); return; }
-    var newName = prompt("Enter new filename (must end with .txt):", currentFile);
-    if(!newName) return;
-    if(!newName.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
+    if (!currentFile) { alert("No file selected!"); return; }
+    let parts = currentFile.split('/');
+    let baseName = parts[parts.length - 1];
+    let newName = prompt("Enter new filename (must end with .txt):", baseName);
+    if (!newName) return;
+    if (!newName.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
+    let oldFullPath = currentFile;
+    let newFullPath = parts.slice(0, -1).join('/');
+    if (newFullPath) newFullPath += '/';
+    newFullPath += newName;
     fetch('rename_file.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({oldname: currentFile, newname: newName})
+        body: JSON.stringify({oldname: oldFullPath, newname: newFullPath})
     })
     .then(resp => resp.text())
     .then(msg => {
         alert(msg);
-        currentFile = newName;
-        loadFileList();
+        currentFile = newFullPath;
+        loadFileList(parts.slice(0, -1).join('/'));
     })
     .catch(() => alert("Failed to rename " + currentFile));
 };
@@ -333,82 +346,38 @@ document.getElementById('rename-btn').onclick = function() {
 // Search / highlight refresh
 function refreshSearch(){
     let query = searchBox.value.trim().toLowerCase();
-
     var allNodes = nodes.get();
     var fileItems = document.querySelectorAll('#file-list .file-item');
 
-    // Clear highlights if search box is empty
     if(!query) {
-        // Reset all nodes
         allNodes.forEach(n => {
-            nodes.update({
-                id: n.id,
-                color: {
-                    background: '#FFFFFF',
-                    border: '#000000',
-                    highlight: {background: '#FFFFFF', border: '#000000'},
-                    hover: {background: '#FFFFFF', border: '#000000'}
-                },
-                size: n.id === mainNodeId ? 100 : 85
-            });
+            nodes.update({ id: n.id, color: {background: '#FFFFFF', border: '#000000', highlight: {background: '#FFFFFF', border: '#000000'}, hover: {background: '#FFFFFF', border: '#000000'}}, size: n.id === mainNodeId ? 100 : 85 });
         });
-
-        // Reset all file items
         fileItems.forEach(div => { div.style.background = 'none'; });
         return;
     }
 
-    // Reset all nodes before applying highlights
     allNodes.forEach(n => {
-        nodes.update({
-            id: n.id,
-            color: {
-                background: '#FFFFFF',
-                border: '#000000',
-                highlight: {background: '#FFFFFF', border: '#000000'},
-                hover: {background: '#FFFFFF', border: '#000000'}
-            },
-            size: n.id === mainNodeId ? 100 : 85
-        });
+        nodes.update({ id: n.id, color: {background: '#FFFFFF', border: '#000000', highlight: {background: '#FFFFFF', border: '#000000'}, hover: {background: '#FFFFFF', border: '#000000'}}, size: n.id === mainNodeId ? 100 : 85 });
     });
 
     fileItems.forEach(div => { div.style.background = 'none'; });
 
-    // Highlight nodes that match query
     allNodes.forEach(n => {
         if(n.label.toLowerCase().includes(query)){
-            nodes.update({
-                id: n.id,
-                color: {
-                    background: '#FFA500',
-                    border: '#000000',
-                    highlight: {background: '#FFA500', border: '#000000'},
-                    hover: {background: '#FFA500', border: '#000000'}
-                },
-                size: n.id === mainNodeId ? 120 : 120
-            });
+            nodes.update({ id: n.id, color: {background: '#FFA500', border: '#000000', highlight: {background: '#FFA500', border: '#000000'}, hover: {background: '#FFA500', border: '#000000'}}, size: n.id === mainNodeId ? 120 : 120 });
         }
     });
 
-    // Highlight files that match query or contain query
     fileItems.forEach(div => {
-        fetch(div.innerText)
+        fetch(currentPath ? currentPath + '/' + div.innerText : div.innerText)
             .then(resp => resp.text())
             .then(text => {
                 if(div.innerText.toLowerCase().includes(query) || text.toLowerCase().includes(query)){
                     div.style.background = '#FFA500';
                     allNodes.forEach(n => {
                         if(n.label === div.innerText){
-                            nodes.update({
-                                id: n.id,
-                                color: {
-                                    background: '#FFA500',
-                                    border: '#000000',
-                                    highlight: {background: '#FFA500', border: '#000000'},
-                                    hover: {background: '#FFA500', border: '#000000'}
-                                },
-                                size: n.id === mainNodeId ? 120 : 120
-                            });
+                            nodes.update({ id: n.id, color: {background: '#FFA500', border: '#000000', highlight: {background: '#FFA500', border: '#000000'}, hover: {background: '#FFA500', border: '#000000'}}, size: n.id === mainNodeId ? 120 : 120 });
                         }
                     });
                 }
@@ -416,7 +385,6 @@ function refreshSearch(){
     });
 }
 
-// Also refresh search on user typing
 searchBox.addEventListener('keyup', function() {
     clearTimeout(window.searchTimer);
     window.searchTimer = setTimeout(refreshSearch, 250);

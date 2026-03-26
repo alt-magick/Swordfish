@@ -14,28 +14,30 @@ if (!$data || !isset($data['oldname']) || !isset($data['newname'])) {
     exit;
 }
 
-$oldname = basename($data['oldname']); // sanitize filenames
-$newname = basename($data['newname']);
-$dir = __DIR__; // current directory
+$oldname = $data['oldname'];
+$newname = $data['newname'];
 
-$oldPath = $dir . DIRECTORY_SEPARATOR . $oldname;
-$newPath = $dir . DIRECTORY_SEPARATOR . $newname;
+// Sanitize filenames to prevent directory traversal
+$oldname = str_replace(['..', "\0"], '', $oldname);
+$newname = str_replace(['..', "\0"], '', $newname);
 
-// Debugging info
-error_log("Attempting to rename file: $oldPath -> $newPath");
+$oldpath = __DIR__ . DIRECTORY_SEPARATOR . $oldname;
+$newpath = __DIR__ . DIRECTORY_SEPARATOR . $newname;
 
-// Check if old file exists
-if (!file_exists($oldPath)) {
+if (!file_exists($oldpath)) {
     echo "Error: File '$oldname' does not exist!";
     exit;
 }
 
-// Attempt to rename
-$result = @rename($oldPath, $newPath);
-if (!$result) {
-    echo "Error: Could not rename '$oldname' to '$newname'. Check permissions!";
+if (file_exists($newpath)) {
+    echo "Error: File '$newname' already exists!";
     exit;
 }
 
-echo "File '$oldname' renamed to '$newname' successfully.";
+// Attempt to rename
+if (@rename($oldpath, $newpath)) {
+    echo "File '$oldname' renamed to '$newname' successfully.";
+} else {
+    echo "Error: Could not rename '$oldname'. Check permissions!";
+}
 ?>
