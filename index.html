@@ -333,9 +333,32 @@ document.getElementById('rename-btn').onclick = function() {
 // Search / highlight refresh
 function refreshSearch(){
     let query = searchBox.value.trim().toLowerCase();
-    if(!query) return;
 
     var allNodes = nodes.get();
+    var fileItems = document.querySelectorAll('#file-list .file-item');
+
+    // Clear highlights if search box is empty
+    if(!query) {
+        // Reset all nodes
+        allNodes.forEach(n => {
+            nodes.update({
+                id: n.id,
+                color: {
+                    background: '#FFFFFF',
+                    border: '#000000',
+                    highlight: {background: '#FFFFFF', border: '#000000'},
+                    hover: {background: '#FFFFFF', border: '#000000'}
+                },
+                size: n.id === mainNodeId ? 100 : 85
+            });
+        });
+
+        // Reset all file items
+        fileItems.forEach(div => { div.style.background = 'none'; });
+        return;
+    }
+
+    // Reset all nodes before applying highlights
     allNodes.forEach(n => {
         nodes.update({
             id: n.id,
@@ -349,9 +372,9 @@ function refreshSearch(){
         });
     });
 
-    var fileItems = document.querySelectorAll('#file-list .file-item');
     fileItems.forEach(div => { div.style.background = 'none'; });
 
+    // Highlight nodes that match query
     allNodes.forEach(n => {
         if(n.label.toLowerCase().includes(query)){
             nodes.update({
@@ -367,6 +390,7 @@ function refreshSearch(){
         }
     });
 
+    // Highlight files that match query or contain query
     fileItems.forEach(div => {
         fetch(div.innerText)
             .then(resp => resp.text())
