@@ -38,9 +38,7 @@ body {
     font-weight: bold;
     padding: 2px 5px;
 }
-.file-item:hover {
-    color: blue;
-}
+.file-item:hover { color: blue; }
 #network { flex: 1; }
 #bottom-container {
     height: 45%;
@@ -105,9 +103,28 @@ body {
 </div>
 
 <script>
-var nodes = new vis.DataSet([{"id": 0, "label": "Main", "x": 400, "y": 300, "fixed": {"x": true, "y": true}, "shape": "ellipse", "size": 100, "font": {"size": 42, "face": "Arial"}, "color": {"background": "#FFFFFF", "border": "#000000", "highlight": {"background": "#FFFFFF", "border": "#000000"}, "hover": {"background": "#FFFFFF", "border": "#000000"}}, "fullPath": ""}]);
+var nodes = new vis.DataSet([
+    {
+        "id": 0,
+        "label": "Main",
+        "x": 400,
+        "y": 300,
+        "fixed": {"x": true, "y": true},
+        "shape": "ellipse",
+        "size": 100,
+        "font": {"size": 42, "face": "Arial"},
+        "color": {
+            "background": "#FFFFFF",
+            "border": "#000000",
+            "highlight": {"background": "#FFFFFF", "border": "#000000"},
+            "hover": {"background": "#FFFFFF", "border": "#000000"}
+        },
+        "fullPath": ""
+    }
+]);
 var edges = new vis.DataSet([]);
 var mainNodeId = 0;
+var selectedNodeId = mainNodeId;
 var currentFile = "";
 var currentPath = "";
 var centerY = 300;
@@ -150,46 +167,26 @@ function loadFileList(path = "") {
                         let parts = currentPath.split('/');
                         parts.pop();
                         let newPath = parts.join('/');
-
-                        // Clear editor and reset file
                         codeView.innerText = "";
                         currentFile = "";
-
-                        // Update main node label
-                        nodes.update({
-                            id: mainNodeId,
-                            label: newPath ? newPath.split('/').pop() : 'Main',
-                            fullPath: newPath
-                        });
-
-                        // Remove child nodes
+                        nodes.update({ id: mainNodeId, label: newPath ? newPath.split('/').pop() : 'Main', fullPath: newPath });
                         var childIds = nodes.getIds().filter(id => id !== mainNodeId);
                         childIds.forEach(id => nodes.remove(id));
                         edges.clear();
-
                         loadFileList(newPath);
                     } else if(f.endsWith('/')) {
                         let newPath = path ? path + '/' + f.slice(0,-1) : f.slice(0,-1);
-
-                        // Clear editor and reset file
                         codeView.innerText = "";
                         currentFile = "";
-
-                        // Update main node label
-                        nodes.update({
-                            id: mainNodeId,
-                            label: f.slice(0,-1),
-                            fullPath: newPath
-                        });
-
-                        // Remove child nodes
+                        nodes.update({ id: mainNodeId, label: f.slice(0,-1), fullPath: newPath });
                         var childIds = nodes.getIds().filter(id => id !== mainNodeId);
                         childIds.forEach(id => nodes.remove(id));
                         edges.clear();
-
                         loadFileList(newPath);
                     } else {
-                        loadFileAndNodes(path ? path + '/' + f : f);
+                        var fullFilePath = path ? path + '/' + f : f;
+                        nodes.update({ id: mainNodeId, label: f, fullPath: fullFilePath });
+                        loadFileAndNodes(fullFilePath);
                     }
                 };
                 container.appendChild(div);
@@ -210,28 +207,29 @@ function loadFileAndNodes(filename){
         .then(text => {
             codeView.innerText = text;
             currentFile = filename;
-
-            // Update main node: show only filename but keep full path internally
-            nodes.update({
-                id: mainNodeId,
-                label: filename.split('/').pop(),
-                fullPath: filename
-            });
-
-            // Remove existing child nodes
+            nodes.update({ id: mainNodeId, label: filename.split('/').pop(), fullPath: filename });
             var existing = nodes.getIds().filter(id => id !== mainNodeId);
             existing.forEach(id => nodes.remove(id));
             edges.clear();
 
             var lines = text.split('\n').filter(l => l.trim().startsWith('#'));
+            var total = lines.length;
+            var radius = 250; // distance from main node
+
             lines.forEach((line, i) => {
                 var cleanLabel = line.replace(/^#/, '').trim();
                 var id = i + 1;
+
+                // Circular layout
+                var angle = (2 * Math.PI / total) * i;
+                var xPos = 400 + radius * Math.cos(angle);
+                var yPos = centerY + radius * Math.sin(angle);
+
                 nodes.add({
                     id: id,
                     label: cleanLabel,
-                    x: leftSiblingX,
-                    y: centerY + (i - Math.floor(lines.length/2)) * spacing,
+                    x: xPos,
+                    y: yPos,
                     fixed: {x: true, y: true},
                     shape: 'ellipse',
                     size: 85,
@@ -257,7 +255,8 @@ network.on('click', function(params) {
     if(params.nodes.length === 0) return;
     var node = params.nodes[0];
 
-    if(node === mainNodeId){
+    if(node === mainNodeId) {
+        selectedNodeId = mainNodeId;
         var nodeData = nodes.get(mainNodeId);
         if(nodeData.fullPath && nodeData.fullPath !== "Main") {
             loadFileAndNodes(nodeData.fullPath);
@@ -265,166 +264,176 @@ network.on('click', function(params) {
         return;
     }
 
-    nodes.update({
-        id: node,
-        x: rightStartX,
-        y: centerY,
-        color: {
-            background: '#FFFFFF',
-            border: '#000000',
-            highlight: {background: '#FFFFFF', border: '#000000'},
-            hover: {background: '#FFFFFF', border: '#000000'}
-        }
-    });
-
-    var childNodes = nodes.getIds().filter(id => id !== mainNodeId && id !== node);
-    var totalLeft = childNodes.length;
-    childNodes.forEach((id, index) => {
-        var yPos = centerY + (index - Math.floor((totalLeft-1)/2)) * spacing;
-        nodes.update({
-            id: id,
-            x: leftSiblingX,
-            y: yPos,
-            color: {
-                background: '#FFFFFF',
-                border: '#000000',
-                highlight: {background: '#FFFFFF', border: '#000000'},
-                hover: {background: '#FFFFFF', border: '#000000'}
-            }
-        }, 'animate');
-    });
-
+    selectedNodeId = node;
     var nodeData = nodes.get(node);
-    fetch(nodeData.fullPath ? nodeData.fullPath : nodeData.label + '?' + new Date().getTime())
-        .then(resp => resp.text())
-        .then(text => { codeView.innerText = text; currentFile = nodeData.fullPath || nodeData.label; refreshSearch(); })
-        .catch(() => codeView.innerText = "Failed to load " + nodeData.label);
+
+    nodes.update({ id: node, color: { background: '#FFFFFF', border: '#000000', highlight: {background: '#FFFFFF', border: '#000000'}, hover: {background: '#FFFFFF', border: '#000000'} } });
+
+    var mainData = nodes.get(mainNodeId);
+    if(mainData.fullPath) {
+        var mainDir = mainData.fullPath.split('/').slice(0,-1).join('/');
+        var childFilePath = mainDir ? mainDir + '/' + nodeData.label : nodeData.label;
+        fetch(childFilePath + '?' + new Date().getTime())
+            .then(resp => {
+                if(!resp.ok) throw new Error("File not found");
+                return resp.text();
+            })
+            .then(text => {
+                codeView.innerText = text;
+                currentFile = childFilePath;
+            })
+            .catch(() => codeView.innerText = "Failed to load " + childFilePath);
+    }
 });
 
 // --------------------------
-// Buttons (Save/New/Delete/Rename)
+// Rename, New, Delete, Save buttons (unchanged)
 // --------------------------
-document.getElementById('save-btn').onclick = function() {
-    if(!currentFile) { alert("No file selected!"); return; }
-    fetch('save_file.php', {
+document.getElementById('rename-btn').onclick = function() {
+    if(selectedNodeId === null) return;
+    var nodeData = nodes.get(selectedNodeId);
+    var oldName = nodeData.label;
+    var newName = prompt("Enter new name:", oldName);
+    if(!newName || newName.trim() === "" || newName === oldName) return;
+    var fullPath = nodeData.fullPath || (currentPath ? currentPath + '/' + oldName : oldName);
+    fetch('rename_file.php', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({filename: currentFile, content: codeView.innerText})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath: fullPath, newName: newName })
     })
-    .then(resp => resp.text())
-    .then(msg => alert(msg))
-    .catch(() => alert("Failed to save " + currentFile));
+    .then(resp => resp.json())
+    .then(result => {
+        if(result.success){
+            var newFullPath = fullPath.split('/').slice(0,-1).join('/');
+            newFullPath = newFullPath ? newFullPath + '/' + newName : newName;
+            nodes.update({ id: selectedNodeId, label: newName, fullPath: newFullPath });
+            if(selectedNodeId === mainNodeId) loadFileList(currentPath);
+            refreshSearch();
+        } else {
+            alert("Rename failed: " + result.error);
+        }
+    })
+    .catch(err => alert("Rename error: " + err));
 };
 
 document.getElementById('new-btn').onclick = function() {
-    var name = prompt("Enter new filename (must end with .txt or '/' for folder):", "my_file.txt");
-    if(!name) return;
-    fetch('new_file.php', {
+    let fileName = prompt("Enter new file name:");
+    if(!fileName || fileName.trim() === "") return;
+    fileName = fileName.trim();
+    if(!fileName.includes('.')) fileName += ".txt";
+    let fullPath = currentPath ? currentPath + '/' + fileName : fileName;
+    fetch('create_file.php', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({filename: currentPath ? currentPath + '/' + name : name})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: fullPath })
     })
-    .then(resp => resp.text())
-    .then(msg => {
-        alert(msg);
-        if(msg.toLowerCase().includes("created")) {
-            currentFile = currentPath ? currentPath + '/' + name : name;
-            if(!name.endsWith('/')) codeView.innerText = "";
-        }
-        loadFileList(currentPath);
+    .then(resp => resp.json())
+    .then(result => {
+        if(result.success){ loadFileList(currentPath); }
+        else { alert("Failed to create file: " + result.error); }
     })
-    .catch(() => alert("Failed to create file " + name));
+    .catch(err => alert("Error creating file: " + err));
 };
 
-// --------------------------
-// Delete & Rename buttons (unchanged)
 document.getElementById('delete-btn').onclick = function() {
-    if(!currentFile) { alert("No file selected!"); return; }
+    if(selectedNodeId === null) return;
+    var nodeData = nodes.get(selectedNodeId);
+    var fullPath = nodeData.fullPath || (currentPath ? currentPath + '/' + nodeData.label : nodeData.label);
+    if(!confirm("Are you sure you want to delete '" + nodeData.label + "'?")) return;
     fetch('delete_file.php', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({filename: currentFile})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: fullPath })
     })
-    .then(resp => resp.text())
-    .then(msg => {
-        alert(msg);
-        currentFile = "";
-        codeView.innerText = "";
-        loadFileList(currentPath);
+    .then(resp => resp.json())
+    .then(result => {
+        if(result.success) {
+            nodes.remove(selectedNodeId);
+            if(selectedNodeId === mainNodeId) {
+                codeView.innerText = "";
+                currentFile = "";
+                loadFileList(currentPath);
+            }
+            selectedNodeId = mainNodeId;
+        } else { alert("Delete failed: " + result.error); }
     })
-    .catch(() => alert("Failed to delete " + currentFile));
+    .catch(err => alert("Delete error: " + err));
 };
 
-document.getElementById('rename-btn').onclick = function() {
-    if (!currentFile) { alert("No file selected!"); return; }
-    let parts = currentFile.split('/');
-    let baseName = parts[parts.length - 1];
-    let newName = prompt("Enter new filename (must end with .txt):", baseName);
-    if (!newName) return;
-    if (!newName.endsWith(".txt")) { alert("Filename must end with .txt"); return; }
-    let oldFullPath = currentFile;
-    let newFullPath = parts.slice(0, -1).join('/');
-    if (newFullPath) newFullPath += '/';
-    newFullPath += newName;
-    fetch('rename_file.php', {
+document.getElementById('save-btn').onclick = function() {
+    if(!currentFile) { alert("No file selected to save."); return; }
+    fetch('save_file.php', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({oldname: oldFullPath, newname: newFullPath})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: currentFile, content: codeView.innerText })
     })
-    .then(resp => resp.text())
-    .then(msg => {
-        alert(msg);
-        currentFile = newFullPath;
-        loadFileList(parts.slice(0, -1).join('/'));
+    .then(resp => resp.json())
+    .then(result => {
+        if(result.success){ alert("File saved successfully!"); }
+        else { alert("Save failed: " + result.error); }
     })
-    .catch(() => alert("Failed to rename " + currentFile));
+    .catch(err => alert("Save error: " + err));
 };
 
 // --------------------------
-// Search / highlight refresh function
+// Search / highlight refresh
 // --------------------------
-function refreshSearch(){
+function refreshSearch() {
     let query = searchBox.value.trim().toLowerCase();
     var allNodes = nodes.get();
     var fileItems = document.querySelectorAll('#file-list .file-item');
 
-    if(!query) {
-        allNodes.forEach(n => {
-            nodes.update({ id: n.id, color: {background: '#FFFFFF', border: '#000000', highlight: {background: '#FFFFFF', border: '#000000'}, hover: {background: '#FFFFFF', border: '#000000'}}, size: n.id === mainNodeId ? 100 : 85 });
-        });
-        fileItems.forEach(div => { div.style.background = 'none'; });
-        return;
-    }
-
     allNodes.forEach(n => {
-        nodes.update({ id: n.id, color: {background: '#FFFFFF', border: '#000000', highlight: {background: '#FFFFFF', border: '#000000'}, hover: {background: '#FFFFFF', border: '#000000'}}, size: n.id === mainNodeId ? 100 : 85 });
+        nodes.update({ id: n.id, color: { background: '#FFFFFF', border: '#000000', highlight: {background:'#FFFFFF',border:'#000000'}, hover:{background:'#FFFFFF',border:'#000000'} }, size: n.id === mainNodeId ? 100 : 85 });
     });
-
     fileItems.forEach(div => { div.style.background = 'none'; });
+
+    if(!query) return;
 
     allNodes.forEach(n => {
         if(n.label.toLowerCase().includes(query)){
-            nodes.update({ id: n.id, color: {background: '#FFA500', border: '#000000', highlight: {background: '#FFA500', border: '#000000'}, hover: {background: '#FFA500', border: '#000000'}}, size: n.id === mainNodeId ? 120 : 120 });
+            nodes.update({ id: n.id, color: { background:'#FFA500', border:'#000000', highlight:{background:'#FFA500', border:'#000000'}, hover:{background:'#FFA500', border:'#000000'} }, size: n.id === mainNodeId ? 120 : 120 });
         }
     });
 
     fileItems.forEach(div => {
-        fetch(currentPath ? currentPath + '/' + div.innerText : div.innerText)
-            .then(resp => resp.text())
-            .then(text => {
-                if(div.innerText.toLowerCase().includes(query) || text.toLowerCase().includes(query)){
-                    div.style.background = '#FFA500';
-                    allNodes.forEach(n => {
-                        if(n.label === div.innerText){
-                            nodes.update({ id: n.id, color: {background: '#FFA500', border: '#000000', highlight: {background: '#FFA500', border: '#000000'}, hover: {background: '#FFA500', border: '#000000'}}, size: n.id === mainNodeId ? 120 : 120 });
-                        }
+        let fileName = div.innerText;
+        let isFolder = fileName.endsWith('/');
+
+        if(!isFolder){
+            fetch(currentPath ? currentPath + '/' + fileName : fileName)
+                .then(resp=>resp.text())
+                .then(text=>{
+                    if(fileName.toLowerCase().includes(query) || text.toLowerCase().includes(query)){
+                        div.style.background = '#FFA500';
+                        allNodes.forEach(n=>{ if(n.label === fileName) nodes.update({ id:n.id, color:{background:'#FFA500',border:'#000000',highlight:{background:'#FFA500',border:'#000000'},hover:{background:'#FFA500',border:'#000000'} }, size: n.id===mainNodeId?120:120 }); });
+                    }
+                }).catch(()=>{});
+        }
+
+        if(isFolder){
+            let folderPath = currentPath ? currentPath + '/' + fileName.slice(0,-1) : fileName.slice(0,-1);
+            fetch('file_list.php?path=' + encodeURIComponent(folderPath) + '&_=' + new Date().getTime())
+                .then(resp=>resp.json())
+                .then(filesInFolder=>{
+                    filesInFolder.forEach(fileInFolder=>{
+                        if(fileInFolder==='..') return;
+                        let filePath = folderPath + '/' + fileInFolder;
+                        fetch(filePath + '?' + new Date().getTime())
+                            .then(resp=>resp.text())
+                            .then(text=>{
+                                if(text.toLowerCase().includes(query)){
+                                    div.style.background = '#FFA500';
+                                    allNodes.forEach(n=>{ if(n.label === fileInFolder) nodes.update({ id:n.id, color:{background:'#FFA500',border:'#000000',highlight:{background:'#FFA500',border:'#000000'},hover:{background:'#FFA500',border:'#000000'} }, size: n.id===mainNodeId?120:120 }); });
+                                }
+                            }).catch(()=>{});
                     });
-                }
-            }).catch(()=>{});
+                }).catch(()=>{});
+        }
     });
 }
 
-searchBox.addEventListener('keyup', function() {
+searchBox.addEventListener('keyup', function(){
     clearTimeout(window.searchTimer);
     window.searchTimer = setTimeout(refreshSearch, 250);
 });

@@ -1,6 +1,2 @@
-# file1.txt
-# file2.txt
-
-This is it.
-
+Search contents.
 

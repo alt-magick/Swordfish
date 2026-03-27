@@ -1,43 +1,19 @@
 <?php
-header('Content-Type: text/plain');
+$data = json_decode(file_get_contents('php://input'), true);
+$oldPath = $data['oldPath'] ?? '';
+$newName = $data['newName'] ?? '';
 
-// Read JSON input
-$input = file_get_contents('php://input');
-if (!$input) {
-    echo "Error: No input received!";
+if(!$oldPath || !$newName){
+    echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
     exit;
 }
 
-$data = json_decode($input, true);
-if (!$data || !isset($data['oldname']) || !isset($data['newname'])) {
-    echo "Error: Invalid JSON or missing 'oldname' or 'newname'!";
-    exit;
-}
+$dir = dirname($oldPath);
+$newPath = $dir === '.' ? $newName : $dir . '/' . $newName;
 
-$oldname = $data['oldname'];
-$newname = $data['newname'];
-
-// Sanitize filenames to prevent directory traversal
-$oldname = str_replace(['..', "\0"], '', $oldname);
-$newname = str_replace(['..', "\0"], '', $newname);
-
-$oldpath = __DIR__ . DIRECTORY_SEPARATOR . $oldname;
-$newpath = __DIR__ . DIRECTORY_SEPARATOR . $newname;
-
-if (!file_exists($oldpath)) {
-    echo "Error: File '$oldname' does not exist!";
-    exit;
-}
-
-if (file_exists($newpath)) {
-    echo "Error: File '$newname' already exists!";
-    exit;
-}
-
-// Attempt to rename
-if (@rename($oldpath, $newpath)) {
-    echo "File '$oldname' renamed to '$newname' successfully.";
+if(rename($oldPath, $newPath)){
+    echo json_encode(['success' => true]);
 } else {
-    echo "Error: Could not rename '$oldname'. Check permissions!";
+    echo json_encode(['success' => false, 'error' => 'Could not rename file']);
 }
 ?>

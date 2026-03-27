@@ -1,49 +1,32 @@
 <?php
-header('Content-Type: text/plain');
+// save_file.php
+header('Content-Type: application/json');
 
-// Read JSON input
+// Get the raw POST data
 $input = file_get_contents('php://input');
-if (!$input) {
-    echo "Error: No input received!";
-    exit;
-}
-
 $data = json_decode($input, true);
-if (!$data || !isset($data['filename']) || !isset($data['content'])) {
-    echo "Error: Invalid JSON or missing 'filename' or 'content'!";
+
+if (!isset($data['path']) || !isset($data['content'])) {
+    echo json_encode(['success' => false, 'error' => 'Missing path or content']);
     exit;
 }
 
-$filename = $data['filename']; // keep relative path
-$content = $data['content'];
+// Sanitize path to prevent directory traversal
+$path = $data['path'];
+$path = str_replace(['..', "\0"], '', $path); // basic sanitization
 
-// Sanitize to prevent path traversal
-$filename = str_replace(['..', "\0"], '', $filename);
-
-$dir = __DIR__; // base directory
-$filepath = $dir . DIRECTORY_SEPARATOR . $filename;
-
-// Ensure subdirectories exist
-$subdir = dirname($filepath);
-if (!is_dir($subdir)) {
-    if (!mkdir($subdir, 0777, true)) {
-        echo "Error: Could not create directory '$subdir'.";
-        exit;
-    }
+// Ensure directories exist
+$dir = dirname($path);
+if (!is_dir($dir)) {
+    mkdir($dir, 0777, true);
 }
 
-// Check if file exists
-if (!file_exists($filepath)) {
-    echo "Error: File '$filename' does not exist!";
-    exit;
-}
+// Attempt to write the file
+$result = file_put_contents($path, $data['content']);
 
-// Attempt to write
-$result = @file_put_contents($filepath, $content);
 if ($result === false) {
-    echo "Error: Could not write to '$filename'. Check permissions!";
-    exit;
+    echo json_encode(['success' => false, 'error' => 'Failed to write file']);
+} else {
+    echo json_encode(['success' => true]);
 }
-
-echo "File '$filename' saved successfully.";
 ?>

@@ -1,39 +1,38 @@
 <?php
-header('Content-Type: text/plain');
+// delete_file.php
+header('Content-Type: application/json');
 
-// Read JSON input
-$input = file_get_contents('php://input');
-if (!$input) {
-    echo "Error: No input received!";
+// Get raw POST data
+$input = json_decode(file_get_contents('php://input'), true);
+if (!isset($input['path']) || empty($input['path'])) {
+    echo json_encode(['success' => false, 'error' => 'No file specified']);
     exit;
 }
 
-$data = json_decode($input, true);
-if (!$data || !isset($data['filename'])) {
-    echo "Error: Invalid JSON or missing 'filename'!";
+$path = $input['path'];
+
+// Security: prevent deleting files outside the allowed root
+$rootDir = __DIR__; // adjust if your files are in a subfolder, e.g., __DIR__.'/files'
+$fullPath = realpath($path);
+
+if (!$fullPath || strpos($fullPath, $rootDir) !== 0) {
+    echo json_encode(['success' => false, 'error' => 'Invalid file path']);
     exit;
 }
 
-$filename = $data['filename'];
-
-// Prevent directory traversal attacks
-$filename = str_replace(['..', "\0"], '', $filename);
-$filepath = __DIR__ . DIRECTORY_SEPARATOR . $filename;
-
-if (!file_exists($filepath)) {
-    echo "Error: File '$filename' does not exist!";
+// Check if file exists
+if (!file_exists($fullPath)) {
+    echo json_encode(['success' => false, 'error' => 'File does not exist']);
     exit;
 }
 
-// Attempt to delete file
-if (!is_writable($filepath)) {
-    echo "Error: File '$filename' is not writable!";
-    exit;
-}
-
-if (@unlink($filepath)) {
-    echo "File '$filename' deleted successfully.";
+// Delete file
+if (is_file($fullPath)) {
+    if (unlink($fullPath)) {
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Failed to delete file']);
+    }
 } else {
-    echo "Error: Could not delete '$filename'. Check permissions!";
+    echo json_encode(['success' => false, 'error' => 'Path is not a file']);
 }
-?>
