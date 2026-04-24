@@ -412,55 +412,103 @@ document.getElementById('save-btn').onclick = function() {
 // --------------------------
 function refreshSearch() {
     let query = searchBox.value.trim().toLowerCase();
-    var allNodes = nodes.get();
-    var fileItems = document.querySelectorAll('#file-list .file-item');
+    const allNodes = nodes.get();
+    const fileItems = document.querySelectorAll('#file-list .file-item');
 
+    // Reset all nodes and file backgrounds
     allNodes.forEach(n => {
-        nodes.update({ id: n.id, color: { background: '#FFFFFF', border: '#000000', highlight: {background:'#FFFFFF',border:'#000000'}, hover:{background:'#FFFFFF',border:'#000000'} }, size: n.id === mainNodeId ? 100 : 85 });
+        nodes.update({
+            id: n.id,
+            color: {
+                background: '#FFFFFF',
+                border: '#000000',
+                highlight: { background: '#FFFFFF', border: '#000000' },
+                hover: { background: '#FFFFFF', border: '#000000' }
+            },
+            size: n.id === mainNodeId ? 100 : 85
+        });
     });
     fileItems.forEach(div => { div.style.background = 'none'; });
 
-    if(!query) return;
+    if (!query) return;
 
+    // Highlight matching nodes
     allNodes.forEach(n => {
-        if(n.label.toLowerCase().includes(query)){
-            nodes.update({ id: n.id, color: { background:'#FFA500', border:'#000000', highlight:{background:'#FFA500', border:'#000000'}, hover:{background:'#FFA500', border:'#000000'} }, size: n.id === mainNodeId ? 120 : 120 });
+        if (n.label.toLowerCase().includes(query)) {
+            nodes.update({
+                id: n.id,
+                color: {
+                    background: '#FFA500',
+                    border: '#000000',
+                    highlight: { background: '#FFA500', border: '#000000' },
+                    hover: { background: '#FFA500', border: '#000000' }
+                },
+                size: n.id === mainNodeId ? 120 : 120
+            });
         }
     });
 
+    // Highlight matching file list items (skip "../")
     fileItems.forEach(div => {
-        let fileName = div.innerText;
-        let isFolder = fileName.endsWith('/');
+        const fileName = div.innerText;
+        if (fileName === '../') return;  // Ignore "../"
 
-        if(!isFolder){
-            fetch(currentPath ? currentPath + '/' + fileName : fileName)
-                .then(resp=>resp.text())
-                .then(text=>{
-                    if(fileName.toLowerCase().includes(query) || text.toLowerCase().includes(query)){
+        const isFolder = fileName.endsWith('/');
+        if (!isFolder) {
+            const filePath = currentPath ? currentPath + '/' + fileName : fileName;
+            fetch(filePath + '?' + new Date().getTime())
+                .then(resp => resp.text())
+                .then(text => {
+                    if (fileName.toLowerCase().includes(query) || text.toLowerCase().includes(query)) {
                         div.style.background = '#FFA500';
-                        allNodes.forEach(n=>{ if(n.label === fileName) nodes.update({ id:n.id, color:{background:'#FFA500',border:'#000000',highlight:{background:'#FFA500',border:'#000000'},hover:{background:'#FFA500',border:'#000000'} }, size: n.id===mainNodeId?120:120 }); });
+                        allNodes.forEach(n => {
+                            if (n.label === fileName) {
+                                nodes.update({
+                                    id: n.id,
+                                    color: {
+                                        background: '#FFA500',
+                                        border: '#000000',
+                                        highlight: { background: '#FFA500', border: '#000000' },
+                                        hover: { background: '#FFA500', border: '#000000' }
+                                    },
+                                    size: n.id === mainNodeId ? 120 : 120
+                                });
+                            }
+                        });
                     }
-                }).catch(()=>{});
-        }
-
-        if(isFolder){
-            let folderPath = currentPath ? currentPath + '/' + fileName.slice(0,-1) : fileName.slice(0,-1);
+                })
+                .catch(() => {});
+        } else { // Folder
+            const folderPath = currentPath ? currentPath + '/' + fileName.slice(0, -1) : fileName.slice(0, -1);
             fetch('file_list.php?path=' + encodeURIComponent(folderPath) + '&_=' + new Date().getTime())
-                .then(resp=>resp.json())
-                .then(filesInFolder=>{
-                    filesInFolder.forEach(fileInFolder=>{
-                        if(fileInFolder==='..') return;
-                        let filePath = folderPath + '/' + fileInFolder;
+                .then(resp => resp.json())
+                .then(filesInFolder => {
+                    filesInFolder.forEach(fileInFolder => {
+                        if (fileInFolder === '..') return; // Ignore "../"
+                        const filePath = folderPath + '/' + fileInFolder;
                         fetch(filePath + '?' + new Date().getTime())
-                            .then(resp=>resp.text())
-                            .then(text=>{
-                                if(text.toLowerCase().includes(query)){
+                            .then(resp => resp.text())
+                            .then(text => {
+                                if (text.toLowerCase().includes(query)) {
                                     div.style.background = '#FFA500';
-                                    allNodes.forEach(n=>{ if(n.label === fileInFolder) nodes.update({ id:n.id, color:{background:'#FFA500',border:'#000000',highlight:{background:'#FFA500',border:'#000000'},hover:{background:'#FFA500',border:'#000000'} }, size: n.id===mainNodeId?120:120 }); });
+                                    allNodes.forEach(n => {
+                                        if (n.label === fileInFolder) {
+                                            nodes.update({
+                                                id: n.id,
+                                                color: {
+                                                    background: '#FFA500',
+                                                    border: '#000000',
+                                                    highlight: { background: '#FFA500', border: '#000000' },
+                                                    hover: { background: '#FFA500', border: '#000000' }
+                                                },
+                                                size: n.id === mainNodeId ? 120 : 120
+                                            });
+                                        }
+                                    });
                                 }
-                            }).catch(()=>{});
+                            }).catch(() => {});
                     });
-                }).catch(()=>{});
+                }).catch(() => {});
         }
     });
 }
