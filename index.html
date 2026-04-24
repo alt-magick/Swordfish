@@ -319,6 +319,37 @@ network.on('click', function(params) {
 });
 
 // --------------------------
+// Node double-click (PROMOTE TO MAIN)
+// --------------------------
+network.on('doubleClick', function(params) {
+    if (params.nodes.length === 0) return;
+
+    var nodeId = params.nodes[0];
+    if (nodeId === mainNodeId) return;
+
+    var nodeData = nodes.get(nodeId);
+
+    nodes.update({
+        id: mainNodeId,
+        label: nodeData.label,
+        fullPath: nodeData.fullPath || currentFile
+    });
+
+    selectedNodeId = mainNodeId;
+
+    var newFile = nodeData.fullPath;
+
+    if (!newFile && currentFile) {
+        var baseDir = currentFile.split('/').slice(0, -1).join('/');
+        newFile = baseDir ? baseDir + '/' + nodeData.label : nodeData.label;
+    }
+
+    if (!newFile) return;
+
+    loadFileAndNodes(newFile);
+});
+
+// --------------------------
 // Rename, New, Delete, Save buttons (unchanged)
 // --------------------------
 document.getElementById('rename-btn').onclick = function() {
