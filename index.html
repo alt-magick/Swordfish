@@ -130,6 +130,9 @@ body {
 function isDesktop() {
     return window.innerWidth >= 1024;
 }
+function isHighlighted(node) {
+    return node.color && node.color.background === '#FFA500';
+}
 var nodes = new vis.DataSet([
     {
         "id": 0,
@@ -299,8 +302,18 @@ network.on('click', function(params) {
     selectedNodeId = node;
     var nodeData = nodes.get(node);
 
-    nodes.update({ id: node, color: { background: '#FFFFFF', border: '#000000', highlight: {background: '#FFFFFF', border: '#000000'}, hover: {background: '#FFFFFF', border: '#000000'} } });
-
+// Only reset if NOT highlighted
+if (!isHighlighted(nodeData)) {
+    nodes.update({
+        id: node,
+        color: {
+            background: '#FFFFFF',
+            border: '#000000',
+            highlight: { background: '#FFFFFF', border: '#000000' },
+            hover: { background: '#FFFFFF', border: '#000000' }
+        }
+    });
+}
     var mainData = nodes.get(mainNodeId);
     if(mainData.fullPath) {
         var mainDir = mainData.fullPath.split('/').slice(0,-1).join('/');
