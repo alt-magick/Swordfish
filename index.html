@@ -29,8 +29,8 @@ body {
     overflow: auto;
     padding: 10px;
     background: #f0f0f0;
-    font-size: clamp(14px, 2vw, 22px); 
-   border-right: 1px solid #d3d3d3;
+    font-size: 28px;
+    border-right: 1px solid #d3d3d3;
 }
 .file-item {
     margin: 5px 0;
@@ -50,7 +50,7 @@ body {
     flex: 1;
     overflow: auto;
     font-family: monospace;
-    font-size: clamp(14px, 2vw, 22px);
+    font-size: 42px;
     white-space: pre;
     outline: none;
     position: relative;
@@ -61,7 +61,7 @@ body {
 }
 #code-view[contenteditable="true"] { cursor: text; }
 #button-bar {
-    height: clamp(60px, 10vh, 80px);
+    height: 80px;
     display: flex;
     align-items: center;
     padding: 5px 10px;
@@ -69,17 +69,41 @@ body {
     border-top: 1px solid #d3d3d3;
 }
 .button {
-    height: clamp(40px, 6vh, 60px);
-    font-size: clamp(14px, 2vw, 22px);
+    height: 60px;
+    font-size: 32px;
     margin-right: 10px;
     cursor: pointer;
     padding: 0 15px;
 }
 #search-box {
-    height: clamp(40px, 6vh, 60px);
-    font-size: clamp(14px, 2vw, 22px);
+    height: 60px;
+    font-size: 32px;
     padding: 0 10px;
     flex: 1;
+}
+@media (min-width: 1024px) {
+    #file-list {
+        font-size: 18px;
+        width: 180px;
+    }
+
+    #code-view {
+        font-size: 20px;
+    }
+
+    .button {
+        font-size: 18px;
+        height: 40px;
+    }
+
+    #search-box {
+        font-size: 18px;
+        height: 40px;
+    }
+
+    #button-bar {
+        height: 60px;
+    }
 }
 </style>
 </head>
@@ -103,11 +127,8 @@ body {
 </div>
 
 <script>
-function getFontSize() {
-    return Math.max(16, Math.min(24, window.innerWidth / 60));
-}
-function getNodeSize() {
-    return Math.max(40, Math.min(80, window.innerWidth / 20));
+function isDesktop() {
+    return window.innerWidth >= 1024;
 }
 var nodes = new vis.DataSet([
     {
@@ -117,8 +138,11 @@ var nodes = new vis.DataSet([
         "y": 300,
         "fixed": {"x": true, "y": true},
         "shape": "ellipse",
-	"size": getNodeSize() + 20,        
-	"font": {"size": getFontSize(), "face": "Arial"},
+        "size": 100,
+"font": {
+    "size": isDesktop() ? 24 : 42,
+    "face": "Arial"
+},
         "color": {
             "background": "#FFFFFF",
             "border": "#000000",
@@ -220,8 +244,7 @@ function loadFileAndNodes(filename){
 
             var lines = text.split('\n').filter(l => l.trim().startsWith('#'));
             var total = lines.length;
-            var radius = 180; // distance from main node
-
+var radius = window.innerWidth >= 1024 ? 170 : 250;
             lines.forEach((line, i) => {
                 var cleanLabel = line.replace(/^#/, '').trim();
                 var id = i + 1;
@@ -238,8 +261,11 @@ function loadFileAndNodes(filename){
                     y: yPos,
                     fixed: {x: true, y: true},
                     shape: 'ellipse',
-                    size: getNodeSize(),
-                    font: { size: getFontSize(), face: "Arial" },
+size: isDesktop() ? 60 : 85,
+font: {
+    size: isDesktop() ? 20 : 42,
+    face: "Arial"
+},
                     color: {
                         background: '#FFFFFF',
                         border: '#000000',
@@ -390,7 +416,7 @@ function refreshSearch() {
     var fileItems = document.querySelectorAll('#file-list .file-item');
 
     allNodes.forEach(n => {
-        nodes.update({ id: n.id, color: { background: '#FFFFFF', border: '#000000', highlight: {background:'#FFFFFF',border:'#000000'}, hover:{background:'#FFFFFF',border:'#000000'} }, size: n.id === mainNodeId ? getNodeSize() + 20 : getNodeSize() });
+        nodes.update({ id: n.id, color: { background: '#FFFFFF', border: '#000000', highlight: {background:'#FFFFFF',border:'#000000'}, hover:{background:'#FFFFFF',border:'#000000'} }, size: n.id === mainNodeId ? 100 : 85 });
     });
     fileItems.forEach(div => { div.style.background = 'none'; });
 
