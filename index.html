@@ -528,7 +528,7 @@ function refreshSearch() {
                 .then(resp => resp.json())
                 .then(filesInFolder => {
                     filesInFolder.forEach(fileInFolder => {
-                        if (fileInFolder === '..') return; // Ignore "../"
+                        if (fileInFolder === '..' || fileInFolder.endsWith('/')) return;
                         const filePath = folderPath + '/' + fileInFolder;
                         fetch(filePath + '?' + new Date().getTime())
                             .then(resp => resp.text())
